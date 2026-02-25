@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:media="http://search.yahoo.com/mrss/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
+  <channel>
+    <title>BBC News - World</title>
+    <link>https://www.bbc.com/news/world</link>
+    <description>World news from the BBC</description>
+    <language>en-gb</language>
+    <lastBuildDate>Mon, 15 Jan 2024 10:00:00 GMT</lastBuildDate>
+    <item>
+      <title>Major breakthrough in renewable energy technology</title>
+      <description>Scientists have developed a new solar panel technology that could revolutionize the industry.</description>
+      <link>https://www.bbc.com/news/technology-68012345</link>
+      <guid isPermaLink="true">https://www.bbc.com/news/technology-68012345</guid>
+      <pubDate>Mon, 15 Jan 2024 09:30:00 GMT</pubDate>
+      <media:thumbnail width="320" height="180" url="https://ichef.bbci.co.uk/news/320/technology.jpg"/>
+    </item>
+    <item>
+      <title>Global climate summit reaches historic agreement</title>
+      <description>World leaders have agreed on ambitious new targets to reduce carbon emissions by 2030.</description>
+      <link>https://www.bbc.com/news/world-68012346</link>
+      <guid isPermaLink="true">https://www.bbc.com/news/world-68012346</guid>
+      <pubDate>Mon, 15 Jan 2024 08:45:00 GMT</pubDate>
+      <media:thumbnail width="320" height="180" url="https://ichef.bbci.co.uk/news/320/climate.jpg"/>
+    </item>
+    <item>
+      <title>New AI breakthrough promises to transform healthcare</title>
+      <description>Researchers have developed an AI system that can detect diseases years before symptoms appear.</description>
+      <link>https://www.bbc.com/news/health-68012347</link>
+      <guid isPermaLink="true">https://www.bbc.com/news/health-68012347</guid>
+      <pubDate>Mon, 15 Jan 2024 07:15:00 GMT</pubDate>
+      <media:thumbnail width="320" height="180" url="https://ichef.bbci.co.uk/news/320/health.jpg"/>
+    </item>
+    <item>
+      <title>SpaceX successfully launches new satellite constellation</title>
+      <description>The mission will provide global internet coverage to remote areas.</description>
+      <link>https://www.bbc.com/news/science-68012348</link>
+      <guid isPermaLink="true">https://www.bbc.com/news/science-68012348</guid>
+      <pubDate>Mon, 15 Jan 2024 06:30:00 GMT</pubDate>
+      <media:thumbnail width="320" height="180" url="https://ichef.bbci.co.uk/news/320/space.jpg"/>
+    </item>
+  </channel>
+</rss>

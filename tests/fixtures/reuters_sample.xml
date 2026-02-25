@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/" version="2.0">
+  <channel>
+    <title>Reuters - Technology</title>
+    <link>https://www.reuters.com/technology</link>
+    <description>Technology news from Reuters</description>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 15 Jan 2024 10:30:00 GMT</lastBuildDate>
+    <item>
+      <title>Revolutionary solar technology achieves record efficiency</title>
+      <description>A breakthrough in photovoltaic cells promises to make solar power more affordable than ever before.</description>
+      <link>https://www.reuters.com/technology/solar-breakthrough-2024-01-15/</link>
+      <guid isPermaLink="true">https://www.reuters.com/technology/solar-breakthrough-2024-01-15/</guid>
+      <pubDate>Mon, 15 Jan 2024 10:15:00 GMT</pubDate>
+      <category>Technology</category>
+    </item>
+    <item>
+      <title>Historic climate accord sets aggressive 2030 targets</title>
+      <description>Landmark agreement commits major economies to unprecedented emissions reductions.</description>
+      <link>https://www.reuters.com/sustainability/climate-accord-2024-01-15/</link>
+      <guid isPermaLink="true">https://www.reuters.com/sustainability/climate-accord-2024-01-15/</guid>
+      <pubDate>Mon, 15 Jan 2024 09:45:00 GMT</pubDate>
+      <category>Sustainability</category>
+    </item>
+    <item>
+      <title>AI diagnostic system predicts disease years in advance</title>
+      <description>Machine learning breakthrough enables early detection of conditions before symptoms manifest.</description>
+      <link>https://www.reuters.com/healthcare/ai-diagnostics-2024-01-15/</link>
+      <guid isPermaLink="true">https://www.reuters.com/healthcare/ai-diagnostics-2024-01-15/</guid>
+      <pubDate>Mon, 15 Jan 2024 08:30:00 GMT</pubDate>
+      <category>Healthcare</category>
+    </item>
+    <item>
+      <title>Satellite constellation launch brings global internet coverage</title>
+      <description>New orbital network will connect remote regions currently without reliable internet access.</description>
+      <link>https://www.reuters.com/aerospace/satellite-launch-2024-01-15/</link>
+      <guid isPermaLink="true">https://www.reuters.com/aerospace/satellite-launch-2024-01-15/</guid>
+      <pubDate>Mon, 15 Jan 2024 07:00:00 GMT</pubDate>
+      <category>Aerospace</category>
+    </item>
+  </channel>
+</rss>

@@ -1,0 +1,18 @@
+[run]
+source = src
+branch = True
+omit =
+    */__pycache__/*
+    */.pyc
+    */__init__.py
+
+[report]
+show_missing = True
+fail_under = 100
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self\.debug
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
