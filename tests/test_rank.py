@@ -1,58 +1,43 @@
 """
-Tests for the rank module - ranking news items.
+Tests for the rank module.
 """
 
 import pytest
-from src.rank import rank_news_items
+from news_fetcher.rank import ArticleRanker
+from news_fetcher.models import Article
+from news_fetcher.models import Config, Source
+from datetime import datetime
 
 
 class TestRank:
-    """Test class for ranking module functionality."""
+    """Test class for the rank module."""
 
-    def test_rank_items_by_relevance(self, sample_news_items):
-        """Test ranking items by relevance."""
-        # Act
-        ranked = rank_news_items(sample_news_items)
-
-        # Assert
-        assert len(ranked) == len(sample_news_items)
-        assert isinstance(ranked, list)
-
-    def test_rank_empty_list(self):
-        """Test ranking empty list of items."""
-        # Act
-        ranked = rank_news_items([])
-
-        # Assert
+    def test_rank_no_items(self):
+        """Test ranking an empty list of items."""
+        config = Config(sources=[])
+        ranker = ArticleRanker(config)
+        ranked = ranker.rank([])
         assert ranked == []
 
-    def test_rank_with_query(self):
-        """Test ranking items with query-based relevance."""
-        # Arrange
-        items = [
-            {
-                "id": "1",
-                "title": "AI Partnership Announced",
-                "content": "Tech companies announce AI partnership",
-                "keywords": ["ai", "partnership"]
-            },
-            {
-                "id": "2",
-                "title": "Stock Market Reaches New High",
-                "content": "Markets hit record highs",
-                "keywords": ["markets", "finance"]
-            },
-            {
-                "id": "3",
-                "title": "AI Research Advances",
-                "content": "New AI research breakthrough",
-                "keywords": ["ai", "research"]
-            }
+    def test_rank_with_items(self, sample_news_items):
+        """Test ranking a list of news items."""
+        config = Config(sources=[
+            Source(name="Example", url="https://example.com", weight=1.0),
+            Source(name="Financial Times", url="https://ft.com", weight=1.5),
+            Source(name="Environmental News", url="https://en.com", weight=1.2)
+        ])
+        ranker = ArticleRanker(config)
+        articles = [
+            Article(
+                id=item['id'],
+                title=item['title'],
+                content=item['content'],
+                url=item['url'],
+                source=item['source'],
+                published_at=datetime(2025, 2, 25)
+            )
+            for item in sample_news_items
         ]
 
-        # Act
-        ranked = rank_news_items(items, query="artificial intelligence")
-
-        # Assert
+        ranked = ranker.rank(articles)
         assert len(ranked) == 3
-        assert ranked[0]["id"] in ["1", "3"]

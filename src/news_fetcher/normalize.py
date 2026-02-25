@@ -118,14 +118,21 @@ def normalize_url(url: str) -> str:
         if not parsed.scheme:
             parsed = urlparse(f"http://{url}")
 
+        print(f"Scheme: {parsed.scheme}")
+        print(f"Netloc: {parsed.netloc}")
+        print(f"Path: {parsed.path}")
+        print(f"Params: {parsed.params}")
+        print(f"Query: {parsed.query}")
+        print(f"Fragment: {parsed.fragment}")
+
         normalized = urlunparse((
             parsed.scheme.lower(),
             parsed.netloc.lower(),
-            parsed.path,
+            parsed.path.lower(),
             parsed.params,
             parsed.query,
             parsed.fragment
-        ))
+        )).lower()
 
         return normalized
     except Exception as e:
@@ -143,13 +150,13 @@ def extract_published_date(entry: Dict) -> datetime:
         Extracted publication date as datetime object, or current time if extraction fails
     """
     try:
-        if "published_parsed" in entry and entry.published_parsed:
-            return datetime(*entry.published_parsed[:6])
-        if "updated_parsed" in entry and entry.updated_parsed:
-            return datetime(*entry.updated_parsed[:6])
+        if "published_parsed" in entry and entry["published_parsed"]:
+            return datetime(*entry["published_parsed"][:6])
+        if "updated_parsed" in entry and entry["updated_parsed"]:
+            return datetime(*entry["updated_parsed"][:6])
         if "pubDate" in entry:
             try:
-                return datetime.strptime(entry.pubDate, "%a, %d %b %Y %H:%M:%S %z")
+                return datetime.strptime(entry["pubDate"], "%a, %d %b %Y %H:%M:%S %z")
             except Exception:
                 pass
     except Exception:
