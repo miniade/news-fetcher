@@ -1,0 +1,43 @@
+name: Publish to ClawHub
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish-to-clawhub:
+    name: Publish to ClawHub
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ClawHub CLI
+        run: npm install -g @clawhub/cli
+
+      - name: Configure ClawHub
+        run: |
+          clawhub login --token ${{ secrets.CLAWHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Publish to ClawHub
+        run: |
+          mkdir -p .publish-temp
+          cp SKILL.md .publish-temp/SKILL.md
+          clawhub publish .publish-temp \
+            --slug news-fetcher \
+            --version ${{ steps.get_version.outputs.version }} \
+            --tags "news,rss,aggregation,summarization" \
+            --changelog "Release v${{ steps.get_version.outputs.version }} - Published from GitHub Actions"

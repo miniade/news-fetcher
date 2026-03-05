@@ -1,24 +1,117 @@
-# OpenClaw Skill: news-fetcher
+---
+name: news-fetcher
+description: Fetches, processes, and clusters news articles from multiple RSS/HTML sources with deduplication and summarization
+argument-hint: "[query or config options]"
+user-invocable: true
+license: MIT
+compatibility: Requires news-fetcher Python package (pip install news-fetcher)
+metadata:
+  author: News Fetcher Team
+  version: 0.1.3
+  homepage: https://github.com/miniade/news-fetcher
+  source: https://github.com/miniade/news-fetcher
+  pypi: https://pypi.org/project/news-fetcher
+  tags: news, rss, aggregation, summarization, clustering
+---
 
-## Overview
+# News Fetcher Skill
 
-**news-fetcher** is an advanced news aggregation and clustering skill for OpenClaw. It fetches articles from multiple sources, removes duplicates, clusters related stories, ranks them by importance, and presents a diverse selection of top news stories.
-
-## When to Use This Skill
-
-Use **news-fetcher** when you need to:
-- Aggregate news from multiple RSS feeds or HTML sources
+Use this skill when the user wants to:
+- Fetch and aggregate news from multiple RSS feeds or HTML sources
 - Remove duplicate articles covering the same story
 - Group related articles into clusters/topics
-- Rank articles by importance and recency
-- Ensure diverse perspectives from different sources
-- Generate summaries of top stories
+- Get ranked news with diverse perspectives
+- Generate summaries of top news stories
+
+## Quick Start
+
+### Step 1: Install the Package
+
+```bash
+pip install news-fetcher==0.1.3
+```
+
+### Step 2: Create Configuration
+
+Create a `config.yaml` file:
+
+```yaml
+sources:
+  - name: BBC News
+    url: http://feeds.bbci.co.uk/news/rss.xml
+    weight: 1.0
+    type: rss
+
+  - name: Reuters
+    url: https://www.reutersagency.com/feed/?best-topics=tech
+    weight: 1.2
+    type: rss
+
+thresholds:
+  similarity: 0.8
+  min_score: 0.3
+  cluster_size: 2
+
+weights:
+  content: 0.6
+  source: 0.2
+  publish_time: 0.2
+```
+
+### Step 3: Fetch News
+
+```bash
+news-fetcher fetch --config config.yaml --limit 20
+```
+
+### Step 4: Output Results
+
+```bash
+news-fetcher fetch --config config.yaml --format markdown --output news.md
+```
+
+## Installation
+
+**Install from PyPI (recommended):**
+```bash
+pip install news-fetcher==0.1.3
+```
+
+**Source & Verification:**
+- PyPI: https://pypi.org/project/news-fetcher/0.1.3/
+- Source: https://github.com/miniade/news-fetcher/tree/v0.1.3
+- Verify integrity: `pip install news-fetcher==0.1.3 --check-hash-mode=module`
+
+**Install from source:**
+```bash
+git clone https://github.com/miniade/news-fetcher.git
+cd news-fetcher
+pip install -e .
+```
+
+## Basic Usage
+
+### Fetch news with default config
+
+```bash
+news-fetcher fetch --config config.yaml --limit 20
+```
+
+### Fetch specific sources
+
+```bash
+news-fetcher fetch --sources "http://feeds.bbci.co.uk/news/rss.xml" --limit 10
+```
+
+### Output as Markdown
+
+```bash
+news-fetcher fetch --config config.yaml --format markdown --output news.md
+```
 
 ## Configuration
 
-### Basic Configuration
-
-Create a `config.yaml` file:
+### Full Configuration Example
 
 ```yaml
 sources:
@@ -38,8 +131,8 @@ sources:
     type: rss
 
 thresholds:
-  similarity: 0.8        # SimHash similarity threshold
-  min_score: 0.3         # Minimum article score
+  similarity: 0.8        # SimHash similarity threshold for duplicates
+  min_score: 0.3         # Minimum article score to include
   cluster_size: 2        # Minimum articles per cluster
 
 weights:
@@ -64,22 +157,7 @@ weights:
 | `source` | 0.2 | Source authority weight |
 | `publish_time` | 0.2 | Recency weight |
 
-## Usage Examples
-
-### Basic Fetch
-
-```bash
-# Fetch with config file
-news-fetcher fetch --config config.yaml --limit 20
-
-# Fetch specific sources
-news-fetcher fetch --sources "http://feeds.bbci.co.uk/news/rss.xml" --limit 10
-
-# Output as Markdown
-news-fetcher fetch --config config.yaml --format markdown --output news.md
-```
-
-### Advanced Options
+## Advanced Options
 
 ```bash
 # Fetch with diversity control
@@ -95,7 +173,7 @@ news-fetcher fetch --config config.yaml --min-score 0.5
 news-fetcher fetch --fixtures ./tests/fixtures/sample-feed.xml
 ```
 
-### Configuration Management
+## Configuration Management
 
 ```bash
 # Validate configuration
@@ -105,134 +183,44 @@ news-fetcher config validate config.yaml
 news-fetcher config example --output example-config.yaml
 ```
 
-### Self-Test
+## How It Works
 
-```bash
-# Run self-test with fixtures
-news-fetcher test --fixtures ./tests/fixtures
-```
+### Processing Pipeline
 
-## Integration with Other Skills
+1. **Fetch**: Retrieves articles from configured RSS/HTML sources
+2. **Deduplicate**: Uses SimHash algorithm to detect near-duplicates
+3. **Cluster**: Groups related articles using HDBSCAN density-based clustering
+4. **Rank**: Scores articles by combining Reddit-style hotness with source authority
+5. **Diversify**: Selects diverse articles using Maximal Marginal Relevance (MMR)
+6. **Summarize**: Generates extractive summaries for top stories
 
-### blogwatcher Skill
+## When to Use
 
-When `blogwatcher` is available, configure `news-fetcher` to use it for advanced article fetching:
-
-```yaml
-# config.yaml
-fetching:
-  use_blogwatcher: true
-  blogwatcher_timeout: 30
-```
-
-Then in your workflow:
-1. `blogwatcher` fetches raw articles with advanced parsing
-2. `news-fetcher` processes, clusters, and ranks the articles
-3. Output delivered to user
-
-### summarize Skill
-
-When `summarize` is available, use it for advanced abstractive summarization:
-
-```yaml
-# config.yaml
-summarization:
-  use_external: true
-  external_skill: "summarize"
-  fallback_to_extractive: true
-```
-
-Workflow:
-1. `news-fetcher` clusters and ranks articles
-2. For top articles, call `summarize` for abstractive summaries
-3. Fallback to extractive if `summarize` unavailable
-4. Present results
-
-### Example Multi-Skill Workflow
-
-```
-User: "Get me the top tech news with summaries"
-
-1. OpenClaw routes to news-fetcher
-2. news-fetcher checks config:
-   - "blogwatcher available? Use for enhanced fetching"
-   - "summarize available? Use for abstractive summaries"
-3. Execution:
-   - blogwatcher → fetch tech sources (TechCrunch, Ars Technica, etc.)
-   - news-fetcher → cluster, rank, diversify
-   - summarize → generate abstractive summaries for top 5
-   - news-fetcher → format and output
-4. Result delivered to user
-```
-
-## Algorithm Details
-
-### Deduplication (SimHash)
-
-Uses Google's SimHash algorithm for near-duplicate detection:
-- 64-bit fingerprint for each article
-- Hamming distance <= 3 indicates duplicate
-- O(n) complexity for n articles
-
-### Clustering (HDBSCAN)
-
-Groups related articles using HDBSCAN:
-- Density-based hierarchical clustering
-- Automatic noise detection
-- Varying density cluster handling
-- O(n²) complexity
-
-### Ranking (Reddit Hotness + Authority)
-
-Combines Reddit-style hotness with source authority:
-```
-hotness = log10(votes) + time_decay
-score = source_weight * hotness * cross_source_score
-```
-
-### Diversity (MMR)
-
-Maximal Marginal Relevance for diverse selection:
-```
-MMR = λ * relevance - (1-λ) * max_similarity
-```
-
-### Summarization (Extractive)
-
-Position-aware extractive summarization:
-- Weight by sentence position
-- Bonus for quotes, statistics
-- Select top N sentences
+Invoke this skill when:
+- User asks for news aggregation: "get me the top tech news"
+- User wants clustered news: "organize these news articles by topic"
+- User needs news summaries: "summarize the top headlines"
+- User mentions multiple news sources: "fetch news from BBC, Reuters, and CNN"
+- User wants to remove duplicates: "find unique news stories from these feeds"
 
 ## Error Handling
 
-The skill handles various error conditions:
+The tool handles various error conditions:
+- Network errors: Graceful fallback with cached data
+- Parse errors: Skip invalid articles, continue processing
+- Empty results: Return informative message
+- Configuration errors: Validate before processing
 
-- **Network errors**: Graceful fallback with cached data
-- **Parse errors**: Skip invalid articles, continue processing
-- **Empty results**: Return informative message
-- **Configuration errors**: Validate before processing
+## Additional Resources
 
-## Performance Considerations
+For detailed technical documentation, see:
+- [README.md](README.md) - Project overview and installation
+- [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture
+- [FEATURES.md](FEATURES.md) - Feature breakdown
 
-| Dataset Size | Processing Time | Memory Usage |
-|--------------|-----------------|--------------|
-| 100 articles | ~2 seconds | ~50 MB |
-| 1,000 articles | ~15 seconds | ~200 MB |
-| 10,000 articles | ~3 minutes | ~1 GB |
+## Source & Provenance
 
-For large-scale processing, consider:
-- Batching sources
-- Incremental processing
-- Distributed clustering
-
-## Security Considerations
-
-- Input validation on all URLs
-- HTML sanitization in content
-- Timeout handling for HTTP requests
-- No execution of external code
-
-## License
-
-MIT License - See LICENSE file for details.
+- **Source Code**: https://github.com/miniade/news-fetcher
+- **PyPI Package**: https://pypi.org/project/news-fetcher
+- **License**: MIT
+- **Current Version**: 0.1.3
