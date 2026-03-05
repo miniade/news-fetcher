@@ -1,6 +1,6 @@
 """News Fetcher package."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from .models import Article, Cluster, Source, Config
 from .dedup import SimHash, Deduplicator, compute_shingles, jaccard_similarity
