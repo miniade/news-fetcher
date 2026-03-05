@@ -215,7 +215,7 @@ def run(ctx):
         else:
             click.echo("Running news pipeline...")
             pipeline = create_default_pipeline(ctx.obj["config_path"])
-            result = pipeline.run()
+            result = pipeline.run(limit=ctx.obj["limit"])
 
         # Output results
         if ctx.obj["output"]:

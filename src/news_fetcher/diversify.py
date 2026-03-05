@@ -88,9 +88,13 @@ class DiversitySelector:
         vec1 = np.array(article1.embeddings)
         vec2 = np.array(article2.embeddings)
 
-        # Normalize vectors
-        vec1 = vec1 / np.linalg.norm(vec1)
-        vec2 = vec2 / np.linalg.norm(vec2)
+        # Normalize vectors, check for zero vectors
+        norm1 = np.linalg.norm(vec1)
+        norm2 = np.linalg.norm(vec2)
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+        vec1 = vec1 / norm1
+        vec2 = vec2 / norm2
 
         # Cosine similarity
         return np.dot(vec1, vec2)
@@ -165,7 +169,11 @@ def mmr_select(
                 return 0.0
             vec1 = np.array(a1.embeddings)
             vec2 = np.array(a2.embeddings)
-            return np.dot(vec1 / np.linalg.norm(vec1), vec2 / np.linalg.norm(vec2))
+            norm1 = np.linalg.norm(vec1)
+            norm2 = np.linalg.norm(vec2)
+            if norm1 == 0 or norm2 == 0:
+                return 0.0
+            return np.dot(vec1 / norm1, vec2 / norm2)
 
     # Select k articles
     for _ in range(k):

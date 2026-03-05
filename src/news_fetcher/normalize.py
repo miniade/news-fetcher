@@ -118,13 +118,6 @@ def normalize_url(url: str) -> str:
         if not parsed.scheme:
             parsed = urlparse(f"http://{url}")
 
-        print(f"Scheme: {parsed.scheme}")
-        print(f"Netloc: {parsed.netloc}")
-        print(f"Path: {parsed.path}")
-        print(f"Params: {parsed.params}")
-        print(f"Query: {parsed.query}")
-        print(f"Fragment: {parsed.fragment}")
-
         normalized = urlunparse((
             parsed.scheme.lower(),
             parsed.netloc.lower(),

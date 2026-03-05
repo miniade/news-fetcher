@@ -77,7 +77,7 @@ class NewsPipeline:
             threshold=int((1 - config.thresholds.get("similarity", 0.8)) * 64)
         )
         self.clusterer = ArticleClusterer(
-            min_cluster_size=config.thresholds.get("cluster_size", 2)
+            min_cluster_size=int(config.thresholds.get("cluster_size", 2))
         )
         self.ranker = ArticleRanker(config)
         self.diversity_selector = DiversitySelector(
@@ -93,7 +93,8 @@ class NewsPipeline:
     def run(
         self,
         sources: Optional[List[Source]] = None,
-        since: Optional[datetime] = None
+        since: Optional[datetime] = None,
+        limit: Optional[int] = None
     ) -> PipelineResult:
         """
         Run the full pipeline with live sources.
@@ -101,6 +102,7 @@ class NewsPipeline:
         Args:
             sources: List of sources to fetch from (defaults to config.sources)
             since: Only fetch articles published after this time
+            limit: Maximum number of articles to return
 
         Returns:
             PipelineResult containing processed articles and metadata
@@ -135,7 +137,7 @@ class NewsPipeline:
             articles = self._rank(articles, clusters)
 
             # Step 6: Apply diversity selection
-            articles = self._diversify(articles)
+            articles = self._diversify(articles, limit)
 
             # Step 7: Generate summaries
             articles = self._summarize(articles)
@@ -271,9 +273,9 @@ class NewsPipeline:
         """Rank articles."""
         return self.ranker.rank(articles)
 
-    def _diversify(self, articles: List[Article]) -> List[Article]:
+    def _diversify(self, articles: List[Article], limit: Optional[int] = None) -> List[Article]:
         """Apply diversity selection."""
-        k = min(len(articles), 50)  # Default limit
+        k = limit if limit is not None else min(len(articles), 50)  # Use limit if provided
         return self.diversity_selector.select(articles, k=k)
 
     def _summarize(self, articles: List[Article]) -> List[Article]:
