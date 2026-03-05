@@ -20,7 +20,7 @@ jobs:
           node-version: '20'
 
       - name: Install ClawHub CLI
-        run: npm install -g @clawhub/cli
+        run: npm install -g clawhub
 
       - name: Configure ClawHub
         run: |

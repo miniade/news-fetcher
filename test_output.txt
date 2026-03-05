@@ -1,0 +1,34 @@
+=== Testing Deduplication ===
+Text1 hash: 2738908480375099720
+Text2 hash: 11987051416840313867
+Text3 hash: 6922965387065654512
+Distance 1-2: 14 (should be small)
+Distance 1-3: 35 (should be large)
+Added doc1, duplicate: None
+Added doc2, duplicate: None
+Added doc3, duplicate: None
+
+=== Testing Clustering ===
+Found 3 clusters
+
+Cluster 1 (ID: ab834391-82c1-44f4-947f-16cc3ee912ee):
+  Articles: ['1', '2', '4', '6']
+  Representative: AI Partnership Announced by Tech Leaders
+  Centroid dimension: 62
+
+Cluster 2 (ID: ef411d2e-f940-4abe-823a-480a2c614593):
+  Articles: ['3', '7']
+  Representative: Climate Change Effects on Farming
+  Centroid dimension: 62
+
+Cluster 3 (ID: 16f0db0c-70db-41da-86d2-bbddaaf66ef0):
+  Articles: ['5', '8']
+  Representative: Deep Learning in Healthcare
+  Centroid dimension: 62
+
+=== Testing Cluster Manager ===
+Initial clusters: 3
+After merge: 2 clusters
+Merged cluster has 4 articles
+
+=== All tests completed ===

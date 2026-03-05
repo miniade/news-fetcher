@@ -15,7 +15,30 @@ sources:
     url: "https://www.theguardian.com/rss"
     weight: 0.9
     type: "rss"
-
+  - name: "Solidot"
+    url: "https://www.solidot.org/index.rss"
+    weight: 1.0
+    type: "rss"
+  - name: "V2EX"
+    url: "https://v2ex.com/index.xml"
+    weight: 0.8
+    type: "rss"
+  - name: "Hacker News"
+    url: "https://news.ycombinator.com/rss"
+    weight: 1.0
+    type: "rss"
+  - name: "36氪"
+    url: "https://36kr.com/feed"
+    weight: 0.8
+    type: "rss"
+  - name: "B站科学科普"
+    url: "https://rsshub.rssforever.com/bilibili/partion/201"
+    weight: 0.8
+    type: "rss"
+  - name: "B站计算机技术"
+    url: "https://rsshub.rssforever.com/bilibili/partion/231"
+    weight: 1.0
+    type: "rss"
 # Threshold configuration
 thresholds:
   similarity: 0.8        # Article similarity threshold for clustering

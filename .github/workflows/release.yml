@@ -48,7 +48,7 @@ jobs:
 
       - name: Publish to ClawHub
         run: |
-          npm install -g @clawhub/cli
+          npm install -g clawhub
           clawhub login --token ${{ secrets.CLAWHUB_TOKEN }}
           mkdir -p .publish-temp
           cp SKILL.md .publish-temp/SKILL.md
