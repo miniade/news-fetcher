@@ -2,11 +2,13 @@
 Diversity selection module using Maximum Marginal Relevance (MMR) and other methods.
 
 This module provides functionality to select diverse articles from a set of candidates
-using MMR, greedy selection, and submodular optimization.
+using MMR, greedy selection, and source-balancing helpers.
 """
 
-from typing import List, Optional, Callable, Dict
+from typing import Callable, Dict, List, Optional
+
 import numpy as np
+
 from .models import Article, Cluster
 
 
@@ -14,28 +16,21 @@ class DiversitySelector:
     """Main diversity selection interface."""
 
     def __init__(self, lambda_param: float = 0.6):
-        """Initialize the diversity selector with MMR parameter.
-
-        Args:
-            lambda_param: MMR parameter (0 = max diversity, 1 = max relevance)
-        """
+        """Initialize the diversity selector with MMR parameter."""
         self.lambda_param = lambda_param
 
     def select(
         self,
         articles: List[Article],
         k: int,
-        selected: Optional[List[Article]] = None
+        selected: Optional[List[Article]] = None,
+        max_per_source: Optional[int] = None,
     ) -> List[Article]:
-        """Select k diverse articles using MMR.
+        """Select k diverse articles.
 
-        Args:
-            articles: List of candidate articles
-            k: Number of articles to select
-            selected: List of already selected articles (default: None)
-
-        Returns:
-            List of selected diverse articles
+        When ``max_per_source`` is provided, use a source-balanced round-robin
+        selection on the already ranked candidate list. Otherwise fall back to
+        MMR selection.
         """
         if k <= 0:
             return []
@@ -43,22 +38,23 @@ class DiversitySelector:
         if selected is None:
             selected = []
 
+        if max_per_source is not None and max_per_source > 0:
+            return round_robin_select(
+                candidates=articles,
+                selected=selected,
+                k=k,
+                max_per_source=max_per_source,
+            )
+
         return mmr_select(
             candidates=articles,
             selected=selected,
             k=k,
-            lambda_param=self.lambda_param
+            lambda_param=self.lambda_param,
         )
 
     def _compute_similarity_matrix(self, articles: List[Article]) -> np.ndarray:
-        """Compute pairwise similarity matrix between articles.
-
-        Args:
-            articles: List of articles
-
-        Returns:
-            Pairwise similarity matrix (n x n)
-        """
+        """Compute pairwise similarity matrix between articles."""
         n = len(articles)
         sim_matrix = np.zeros((n, n))
 
@@ -73,22 +69,13 @@ class DiversitySelector:
         return sim_matrix
 
     def _compute_similarity(self, article1: Article, article2: Article) -> float:
-        """Compute similarity between two articles using embeddings.
-
-        Args:
-            article1: First article
-            article2: Second article
-
-        Returns:
-            Similarity score between 0 and 1
-        """
+        """Compute similarity between two articles using embeddings."""
         if article1.embeddings is None or article2.embeddings is None:
             return 0.0
 
         vec1 = np.array(article1.embeddings)
         vec2 = np.array(article2.embeddings)
 
-        # Normalize vectors, check for zero vectors
         norm1 = np.linalg.norm(vec1)
         norm2 = np.linalg.norm(vec2)
         if norm1 == 0 or norm2 == 0:
@@ -96,33 +83,14 @@ class DiversitySelector:
         vec1 = vec1 / norm1
         vec2 = vec2 / norm2
 
-        # Cosine similarity
-        return np.dot(vec1, vec2)
+        return float(np.dot(vec1, vec2))
 
     def _compute_mmr_score(self, relevance: float, max_similarity: float) -> float:
-        """Compute MMR score for a candidate article.
-
-        Args:
-            relevance: Relevance score of the candidate
-            max_similarity: Maximum similarity to already selected articles
-
-        Returns:
-            MMR score
-        """
+        """Compute MMR score for a candidate article."""
         return self.lambda_param * relevance - (1 - self.lambda_param) * max_similarity
 
     def _get_embeddings(self, article: Article) -> np.ndarray:
-        """Get or compute article embeddings.
-
-        Args:
-            article: Article to get embeddings for
-
-        Returns:
-            Article embeddings as numpy array
-
-        Raises:
-            ValueError: If embeddings are not available
-        """
+        """Get or compute article embeddings."""
         if article.embeddings is None:
             raise ValueError(f"Article {article.id} has no embeddings")
 
@@ -134,36 +102,20 @@ def mmr_select(
     selected: List[Article],
     k: int,
     lambda_param: float = 0.6,
-    similarity_fn: Optional[Callable] = None
+    similarity_fn: Optional[Callable] = None,
 ) -> List[Article]:
-    """
-    Maximum Marginal Relevance (MMR) selection implementation.
-
-    MMR balances relevance and diversity by selecting articles that are both
-    relevant to the query and dissimilar to already selected articles.
-
-    Args:
-        candidates: List of candidate articles
-        selected: List of already selected articles
-        k: Number of additional articles to select
-        lambda_param: MMR parameter (0 = max diversity, 1 = max relevance)
-        similarity_fn: Custom similarity function (default: cosine similarity)
-
-    Returns:
-        List of selected articles
-    """
+    """Maximum Marginal Relevance (MMR) selection implementation."""
     if k <= 0:
         return selected.copy()
 
-    # Initialize with selected articles
     result = selected.copy()
     available = [a for a in candidates if a not in result]
 
     if not available:
         return result
 
-    # Default similarity function using embeddings
     if similarity_fn is None:
+
         def similarity_fn(a1: Article, a2: Article) -> float:
             if a1.embeddings is None or a2.embeddings is None:
                 return 0.0
@@ -173,9 +125,8 @@ def mmr_select(
             norm2 = np.linalg.norm(vec2)
             if norm1 == 0 or norm2 == 0:
                 return 0.0
-            return np.dot(vec1 / norm1, vec2 / norm2)
+            return float(np.dot(vec1 / norm1, vec2 / norm2))
 
-    # Select k articles
     for _ in range(k):
         if not available:
             break
@@ -184,18 +135,13 @@ def mmr_select(
         best_article = None
 
         for candidate in available:
-            # Relevance is the article's score
             relevance = candidate.score
-
-            # Maximum similarity to already selected articles
             if result:
                 max_sim = max(similarity_fn(candidate, a) for a in result)
             else:
                 max_sim = 0.0
 
-            # MMR score
             score = lambda_param * relevance - (1 - lambda_param) * max_sim
-
             if score > best_score:
                 best_score = score
                 best_article = candidate
@@ -207,29 +153,75 @@ def mmr_select(
     return result
 
 
+def round_robin_select(
+    candidates: List[Article],
+    selected: List[Article],
+    k: int,
+    max_per_source: int,
+) -> List[Article]:
+    """Select articles in score-preserving source rounds with an optional cap.
+
+    Candidates are assumed to already be ranked. The selector walks sources in
+    first-seen order, taking one article per source each round until ``k`` is
+    reached. If the per-source cap prevents filling all slots, remaining slots
+    are filled from the leftover ranked pool.
+    """
+    if k <= 0:
+        return selected.copy()
+
+    result = selected.copy()
+    available = [a for a in candidates if a not in result]
+    if not available:
+        return result
+
+    source_groups: Dict[str, List[Article]] = {}
+    source_order: List[str] = []
+    for article in available:
+        if article.source not in source_groups:
+            source_groups[article.source] = []
+            source_order.append(article.source)
+        source_groups[article.source].append(article)
+
+    counts: Dict[str, int] = {}
+    for article in result:
+        counts[article.source] = counts.get(article.source, 0) + 1
+
+    while len(result) < k:
+        made_progress = False
+        for source in source_order:
+            if len(result) >= k:
+                break
+            if counts.get(source, 0) >= max_per_source:
+                continue
+            group = source_groups.get(source, [])
+            if not group:
+                continue
+            article = group.pop(0)
+            result.append(article)
+            counts[source] = counts.get(source, 0) + 1
+            made_progress = True
+
+        if not made_progress:
+            break
+
+    if len(result) < k:
+        leftovers: List[Article] = []
+        for source in source_order:
+            leftovers.extend(source_groups.get(source, []))
+        result.extend(leftovers[: max(0, k - len(result))])
+
+    return result
+
+
 def greedy_diversity_select(
     candidates: List[Article],
     k: int,
-    similarity_fn: Callable
+    similarity_fn: Callable,
 ) -> List[Article]:
-    """
-    Greedy diversity selection algorithm.
-
-    Starts with the most relevant article and iteratively adds the article that
-    is least similar to the current set.
-
-    Args:
-        candidates: List of candidate articles
-        k: Number of articles to select
-        similarity_fn: Similarity function
-
-    Returns:
-        List of selected diverse articles
-    """
+    """Greedy diversity selection algorithm."""
     if k <= 0 or not candidates:
         return []
 
-    # Sort candidates by relevance descending
     sorted_candidates = sorted(candidates, key=lambda x: x.score, reverse=True)
 
     if k == 1:
@@ -242,7 +234,6 @@ def greedy_diversity_select(
         if not available:
             break
 
-        # Find article with minimum maximum similarity to selected
         best_article = None
         min_max_sim = float("inf")
 
@@ -262,19 +253,9 @@ def greedy_diversity_select(
 def submodular_select(
     candidates: List[Article],
     k: int,
-    submodular_fn: Callable
+    submodular_fn: Callable,
 ) -> List[Article]:
-    """
-    Submodular optimization for diversity selection using greedy algorithm.
-
-    Args:
-        candidates: List of candidate articles
-        k: Number of articles to select
-        submodular_fn: Submodular function to maximize
-
-    Returns:
-        List of selected articles
-    """
+    """Submodular optimization for diversity selection using greedy algorithm."""
     if k <= 0 or not candidates:
         return []
 
@@ -288,9 +269,7 @@ def submodular_select(
             if candidate in selected:
                 continue
 
-            # Calculate gain of adding this candidate
             current_gain = submodular_fn(selected + [candidate]) - submodular_fn(selected)
-
             if current_gain > best_gain:
                 best_gain = current_gain
                 best_article = candidate
@@ -304,40 +283,27 @@ def submodular_select(
 
 
 def balance_sources(articles: List[Article], k: int, min_per_source: int = 1) -> List[Article]:
-    """
-    Ensure source diversity by balancing article selection across sources.
-
-    Args:
-        articles: List of candidate articles
-        k: Number of articles to select
-        min_per_source: Minimum number of articles per source (default: 1)
-
-    Returns:
-        List of selected articles with balanced source representation
-    """
+    """Ensure source diversity by balancing article selection across sources."""
     if k <= 0:
         return []
 
-    # Group articles by source
     source_groups: Dict[str, List[Article]] = {}
     for article in articles:
         if article.source not in source_groups:
             source_groups[article.source] = []
         source_groups[article.source].append(article)
 
-    # Sort each source's articles by relevance
     for source in source_groups:
         source_groups[source] = sorted(
             source_groups[source],
             key=lambda x: x.score,
-            reverse=True
+            reverse=True,
         )
 
     selected = []
     sources = list(source_groups.keys())
     source_index = 0
 
-    # First, ensure minimum per source
     while len(selected) < k and source_index < len(sources):
         source = sources[source_index]
         group = source_groups[source]
@@ -348,10 +314,8 @@ def balance_sources(articles: List[Article], k: int, min_per_source: int = 1) ->
 
         source_index += 1
 
-    # Fill remaining slots with top-ranked from all sources
     remaining = k - len(selected)
     if remaining > 0:
-        # Collect all articles not already selected
         all_available = []
         for source in sources:
             group = source_groups[source]
@@ -359,7 +323,6 @@ def balance_sources(articles: List[Article], k: int, min_per_source: int = 1) ->
                 if article not in selected:
                     all_available.append(article)
 
-        # Sort by relevance and take top remaining
         all_available = sorted(all_available, key=lambda x: x.score, reverse=True)
         selected.extend(all_available[:remaining])
 
@@ -367,27 +330,17 @@ def balance_sources(articles: List[Article], k: int, min_per_source: int = 1) ->
 
 
 def balance_topics(clusters: List[Cluster], k: int) -> List[Article]:
-    """
-    Ensure topic diversity by selecting representatives from clusters.
-
-    Args:
-        clusters: List of topic clusters
-        k: Number of articles to select
-
-    Returns:
-        List of selected articles with balanced topic representation
-    """
+    """Ensure topic diversity by selecting representatives from clusters."""
     if k <= 0 or not clusters:
         return []
 
-    # Sort clusters by importance (size * average score)
     sorted_clusters = sorted(
         clusters,
         key=lambda c: (
             len(c.articles),
-            sum(a.score for a in c.articles) / max(1, len(c.articles))
+            sum(a.score for a in c.articles) / max(1, len(c.articles)),
         ),
-        reverse=True
+        reverse=True,
     )
 
     selected = []
@@ -396,11 +349,9 @@ def balance_topics(clusters: List[Cluster], k: int) -> List[Article]:
         if len(selected) >= k:
             break
 
-        # Select representative article from cluster
         if cluster.representative_article is not None:
             selected.append(cluster.representative_article)
         else:
-            # Fallback: select top-ranked article in cluster
             top_article = sorted(cluster.articles, key=lambda x: x.score, reverse=True)[0]
             selected.append(top_article)
 

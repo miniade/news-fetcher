@@ -44,6 +44,7 @@ thresholds:
   similarity: 0.8        # Article similarity threshold for clustering
   min_score: 0.5         # Minimum score for including articles
   cluster_size: 2        # Minimum cluster size
+  max_per_source: 3      # Prefer source-diverse selection in the final output
 
 # Weight configuration for scoring
 weights:

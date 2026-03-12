@@ -7,7 +7,7 @@ including articles, clusters, sources, and configuration.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Any, Dict
+from typing import List, Optional, Dict
 
 
 @dataclass
@@ -29,6 +29,7 @@ class Article:
         cluster_id: ID of the cluster this article belongs to
         score: Relevance score of the article
     """
+
     id: str
     title: str
     content: str
@@ -54,6 +55,7 @@ class Cluster:
         centroid: Centroid vector of the cluster
         representative_article: Most representative article in the cluster
     """
+
     id: str
     articles: List[Article] = field(default_factory=list)
     centroid: Optional[List[float]] = None
@@ -71,6 +73,7 @@ class Source:
         weight: Importance weight of this source
         type: Type of source (rss or html)
     """
+
     name: str
     url: str
     weight: float = 1.0
@@ -87,14 +90,20 @@ class Config:
         thresholds: Configuration thresholds (e.g., similarity, score)
         weights: Weighting configuration for scoring
     """
+
     sources: List[Source] = field(default_factory=list)
-    thresholds: Dict[str, float] = field(default_factory=lambda: {
-        "similarity": 0.8,
-        "min_score": 0.5,
-        "cluster_size": 2
-    })
-    weights: Dict[str, float] = field(default_factory=lambda: {
-        "content": 0.6,
-        "source": 0.2,
-        "publish_time": 0.2
-    })
+    thresholds: Dict[str, float] = field(
+        default_factory=lambda: {
+            "similarity": 0.8,
+            "min_score": 0.5,
+            "cluster_size": 2,
+            "max_per_source": 3,
+        }
+    )
+    weights: Dict[str, float] = field(
+        default_factory=lambda: {
+            "content": 0.6,
+            "source": 0.2,
+            "publish_time": 0.2,
+        }
+    )

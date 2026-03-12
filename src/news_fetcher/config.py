@@ -6,14 +6,42 @@ from YAML/JSON files with support for environment variable overrides.
 """
 
 import os
-from typing import Optional, Dict, Any
+from os import PathLike
+from typing import Optional, Dict, Any, Mapping, Union
+
 import yaml
+
 from .models import Config, Source
 
 
 class ConfigError(Exception):
     """Exception raised for configuration-related errors."""
-    pass
+
+
+ConfigInput = Union[Mapping[str, Any], str, PathLike[str]]
+
+
+def _load_config_data(config_input: ConfigInput) -> Dict[str, Any]:
+    """Load raw configuration data from a mapping or a file path."""
+    if isinstance(config_input, (str, PathLike)):
+        config_path = os.fspath(config_input)
+        if not os.path.exists(config_path):
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                config_data = yaml.safe_load(f)
+        except Exception as e:
+            raise ConfigError(f"Failed to parse configuration file: {e}") from e
+    else:
+        config_data = config_input
+
+    if config_data is None:
+        return {}
+    if not isinstance(config_data, Mapping):
+        raise ConfigError("Configuration root must be an object/mapping")
+
+    return dict(config_data)
 
 
 def load_config(config_path: Optional[str] = None) -> Config:
@@ -34,24 +62,15 @@ def load_config(config_path: Optional[str] = None) -> Config:
     if config_path is None:
         config_path = "config.yaml"
 
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"Configuration file not found: {config_path}")
-
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config_data = yaml.safe_load(f)
-    except Exception as e:
-        raise ConfigError(f"Failed to parse configuration file: {e}")
-
-    return validate_config(config_data)
+    return validate_config(config_path)
 
 
-def validate_config(config_data: Dict[str, Any]) -> Config:
+def validate_config(config_input: ConfigInput) -> Config:
     """
     Validate and parse configuration data.
 
     Args:
-        config_data: Raw configuration data from file.
+        config_input: Raw configuration mapping or a path to a config file.
 
     Returns:
         Validated Config object.
@@ -60,53 +79,67 @@ def validate_config(config_data: Dict[str, Any]) -> Config:
         ConfigError: If configuration is invalid.
     """
     try:
-        # Validate sources
-        sources = []
-        if "sources" in config_data:
-            for source_data in config_data["sources"]:
-                if "name" not in source_data or "url" not in source_data:
-                    raise ConfigError("Source must have name and url fields")
-                sources.append(Source(
-                    name=source_data["name"],
-                    url=source_data["url"],
-                    weight=source_data.get("weight", 1.0),
-                    type=source_data.get("type", "rss")
-                ))
+        config_data = _load_config_data(config_input)
 
-        # Validate thresholds
-        thresholds = config_data.get("thresholds", {})
+        raw_sources = config_data.get("sources", [])
+        if not isinstance(raw_sources, list):
+            raise ConfigError("'sources' must be a list")
+
+        sources = []
+        for source_data in raw_sources:
+            if not isinstance(source_data, Mapping):
+                raise ConfigError("Each source must be an object")
+            if "name" not in source_data or "url" not in source_data:
+                raise ConfigError("Source must have name and url fields")
+            sources.append(
+                Source(
+                    name=str(source_data["name"]),
+                    url=str(source_data["url"]),
+                    weight=float(source_data.get("weight", 1.0)),
+                    type=str(source_data.get("type", "rss")),
+                )
+            )
+
+        raw_thresholds = config_data.get("thresholds") or {}
+        if not isinstance(raw_thresholds, Mapping):
+            raise ConfigError("'thresholds' must be an object")
+        thresholds = dict(raw_thresholds)
         default_thresholds = {
             "similarity": 0.8,
             "min_score": 0.5,
-            "cluster_size": 2
+            "cluster_size": 2,
+            "max_per_source": 3,
         }
         for key, default in default_thresholds.items():
-            if key not in thresholds:
-                thresholds[key] = default
+            value = thresholds.get(key, default)
+            if key in {"cluster_size", "max_per_source"}:
+                thresholds[key] = int(value)
             else:
-                thresholds[key] = float(thresholds[key])
+                thresholds[key] = float(value)
 
-        # Validate weights
-        weights = config_data.get("weights", {})
+        if thresholds["cluster_size"] < 1:
+            raise ConfigError("thresholds.cluster_size must be >= 1")
+        if thresholds["max_per_source"] < 0:
+            raise ConfigError("thresholds.max_per_source must be >= 0")
+
+        raw_weights = config_data.get("weights") or {}
+        if not isinstance(raw_weights, Mapping):
+            raise ConfigError("'weights' must be an object")
+        weights = dict(raw_weights)
         default_weights = {
             "content": 0.6,
             "source": 0.2,
-            "publish_time": 0.2
+            "publish_time": 0.2,
         }
         for key, default in default_weights.items():
-            if key not in weights:
-                weights[key] = default
-            else:
-                weights[key] = float(weights[key])
+            weights[key] = float(weights.get(key, default))
 
-        return Config(
-            sources=sources,
-            thresholds=thresholds,
-            weights=weights
-        )
+        return Config(sources=sources, thresholds=thresholds, weights=weights)
 
+    except ConfigError:
+        raise
     except Exception as e:
-        raise ConfigError(f"Invalid configuration: {e}")
+        raise ConfigError(f"Invalid configuration: {e}") from e
 
 
 def load_config_from_env(config: Config) -> Config:
@@ -119,22 +152,19 @@ def load_config_from_env(config: Config) -> Config:
     Returns:
         Configuration object with environment variable overrides applied.
     """
-    # Example environment variable overrides:
-    # NEWS_FETCHER_THRESHOLD_SIMILARITY=0.9
-    # NEWS_FETCHER_WEIGHT_CONTENT=0.7
-
     prefix = "NEWS_FETCHER_"
 
-    # Override thresholds
     for key in config.thresholds:
         env_key = f"{prefix}THRESHOLD_{key.upper()}"
         if env_key in os.environ:
             try:
-                config.thresholds[key] = float(os.environ[env_key])
+                if key in {"cluster_size", "max_per_source"}:
+                    config.thresholds[key] = int(os.environ[env_key])
+                else:
+                    config.thresholds[key] = float(os.environ[env_key])
             except ValueError:
                 pass
 
-    # Override weights
     for key in config.weights:
         env_key = f"{prefix}WEIGHT_{key.upper()}"
         if env_key in os.environ:

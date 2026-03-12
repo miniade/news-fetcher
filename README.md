@@ -11,26 +11,29 @@ Advanced news aggregation and clustering tool that fetches articles from multipl
 - **Multi-Source Fetching**: Support for RSS/Atom feeds and HTML pages
 - **Smart Deduplication**: SimHash-based near-duplicate detection
 - **Intelligent Clustering**: HDBSCAN density-based clustering
-- **Relevance Ranking**: Reddit-style hotness + source authority
-- **Diverse Selection**: Maximal Marginal Relevance (MMR) algorithm
+- **Relevance Ranking**: Freshness + source authority scoring
+- **Diverse Selection**: Source-aware final selection for multi-source feeds
 - **Automatic Summarization**: Position-aware extractive summarization
 - **Multiple Output Formats**: JSON, Markdown, CSV, RSS
 
 ## Installation
 
-### From PyPI (when published)
-
-```bash
-pip install news-fetcher
-```
-
-### From Source
+### From Source (recommended)
 
 ```bash
 git clone https://github.com/example/news-fetcher.git
 cd news-fetcher
 pip install -e ".[dev]"
 ```
+
+### From PyPI
+
+```bash
+pip install news-fetcher
+```
+
+> If you are validating this repository specifically, prefer installing from source so the CLI and local code stay in sync.
+
 
 ## Quick Start
 
@@ -53,6 +56,7 @@ thresholds:
   similarity: 0.8
   min_score: 0.3
   cluster_size: 2
+  max_per_source: 3
 
 weights:
   content: 0.6
@@ -64,13 +68,13 @@ weights:
 
 ```bash
 # Basic fetch
-news-fetcher fetch --config config.yaml --limit 20
+news-fetcher --config config.yaml --limit 20 run
 
 # Output as Markdown
-news-fetcher fetch --config config.yaml --format markdown --output news.md
+news-fetcher --config config.yaml --format markdown --output news.md run
 
-# Fetch with diversity control
-news-fetcher fetch --config config.yaml --diversity 0.7 --limit 30
+# Fetch with source-diverse selection
+news-fetcher --config config.yaml --limit 30 run
 ```
 
 ### 3. Python API
@@ -101,7 +105,7 @@ for article in result.articles[:10]:
 
 ```bash
 # Fetch and process news
-news-fetcher fetch [OPTIONS]
+news-fetcher run [OPTIONS]
 
 # Validate configuration
 news-fetcher config validate <path>
@@ -113,7 +117,7 @@ news-fetcher config example [OPTIONS]
 news-fetcher test [OPTIONS]
 ```
 
-### Fetch Options
+### Global Options (place before `run`)
 
 | Option | Description | Default |
 |--------|-------------|---------|

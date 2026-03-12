@@ -1,238 +1,192 @@
-"""
-Output formatting module for news-fetcher application.
-
-This module provides various output formats for news articles and clusters,
-including JSON, Markdown, CSV, and RSS.
-"""
+"""Output formatting helpers for news-fetcher."""
 
 import csv
 import json
 from io import StringIO
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Any
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 from news_fetcher.models import Article, Cluster
 
 
+def _article_to_dict(article: Article) -> Dict[str, Any]:
+    data: Dict[str, Any] = {
+        "id": article.id,
+        "title": article.title,
+        "content": article.content,
+        "url": article.url,
+        "source": article.source,
+        "published_at": article.published_at.isoformat() if article.published_at else None,
+        "fetched_at": article.fetched_at.isoformat() if article.fetched_at else None,
+        "author": article.author,
+        "summary": article.summary,
+        "cluster_id": article.cluster_id,
+        "score": article.score,
+    }
+    if article.embeddings is not None:
+        data["embeddings"] = article.embeddings
+    return data
+
+
 def format_json(articles: List[Article], clusters: Optional[List[Cluster]] = None) -> str:
-    """
-    Format articles and clusters as JSON.
+    """Format articles and clusters as JSON."""
+    result: Dict[str, Any] = {"articles": [_article_to_dict(article) for article in articles]}
 
-    Args:
-        articles: List of articles
-        clusters: Optional list of clusters
-
-    Returns:
-        JSON string representation
-    """
-    data = []
-    for article in articles:
-        article_data = {
-            "id": article.id,
-            "title": article.title,
-            "content": article.content,
-            "url": article.url,
-            "source": article.source,
-            "published_at": article.published_at.isoformat() if article.published_at else None,
-            "fetched_at": article.fetched_at.isoformat() if article.fetched_at else None
-        }
-        if article.author:
-            article_data["author"] = article.author
-        if article.summary:
-            article_data["summary"] = article.summary
-        if article.embeddings:
-            article_data["embeddings"] = article.embeddings
-        if article.cluster_id:
-            article_data["cluster_id"] = article.cluster_id
-        if article.score:
-            article_data["score"] = article.score
-
-        data.append(article_data)
-
-    result = {"articles": data}
-    if clusters:
+    if clusters is not None:
         result["clusters"] = []
         for cluster in clusters:
-            cluster_data = {
+            cluster_data: Dict[str, Any] = {
                 "id": cluster.id,
                 "articles": [article.id for article in cluster.articles],
-                "representative": {
+            }
+            if cluster.representative_article is not None:
+                cluster_data["representative"] = {
                     "id": cluster.representative_article.id,
                     "title": cluster.representative_article.title,
-                    "url": cluster.representative_article.url
+                    "url": cluster.representative_article.url,
                 }
-            }
-            if cluster.centroid:
+            if cluster.centroid is not None:
                 cluster_data["centroid"] = cluster.centroid
             result["clusters"].append(cluster_data)
 
-    return json.dumps(result, ensure_ascii=False, indent=2, default=str)
+    return json.dumps(result, ensure_ascii=False, indent=2)
 
 
 def format_markdown(articles: List[Article], clusters: Optional[List[Cluster]] = None) -> str:
-    """
-    Format articles and clusters as Markdown.
-
-    Args:
-        articles: List of articles
-        clusters: Optional list of clusters
-
-    Returns:
-        Markdown string representation
-    """
-    output = []
-    output.append("# News Articles")
-    output.append("")
+    """Format articles and clusters as Markdown."""
+    lines = ["# News Articles", ""]
 
     if clusters:
         for cluster in clusters:
-            output.append(f"## Cluster: {cluster.representative_article.title}")
-            output.append("")
+            heading = cluster.representative_article.title if cluster.representative_article else cluster.id
+            lines.append(f"## Cluster: {heading}")
+            lines.append("")
             for article in cluster.articles:
-                output.append(f"- [{article.title}]({article.url})")
+                lines.append(f"- [{article.title}]({article.url})")
+                lines.append(f"  - Source: {article.source}")
+                if article.published_at:
+                    lines.append(f"  - Published: {article.published_at.isoformat()}")
+                if article.score is not None:
+                    lines.append(f"  - Score: {article.score:.2f}")
                 if article.summary:
-                    output.append(f"  {article.summary}")
-            output.append("")
-    else:
-        for article in articles:
-            output.append(f"## {article.title}")
-            output.append("")
-            if article.author:
-                output.append(f"**Author:** {article.author}")
-                output.append("")
-            if article.published_at:
-                output.append(f"**Published:** {article.published_at}")
-                output.append("")
-            output.append(article.content)
-            output.append("")
+                    lines.append(f"  - Summary: {article.summary}")
+            lines.append("")
+        return "\n".join(lines)
 
-    return "\n".join(output)
+    for article in articles:
+        lines.append(f"## [{article.title}]({article.url})")
+        lines.append("")
+        lines.append(f"- Source: {article.source}")
+        if article.author:
+            lines.append(f"- Author: {article.author}")
+        if article.published_at:
+            lines.append(f"- Published: {article.published_at.isoformat()}")
+        if article.score is not None:
+            lines.append(f"- Score: {article.score:.2f}")
+        if article.summary:
+            lines.append(f"- Summary: {article.summary}")
+        lines.append("")
+        lines.append(article.content)
+        lines.append("")
+
+    return "\n".join(lines)
 
 
 def format_csv(articles: List[Article]) -> str:
-    """
-    Format articles as CSV.
-
-    Args:
-        articles: List of articles
-
-    Returns:
-        CSV string representation
-    """
+    """Format articles as CSV."""
     output = StringIO()
-    fieldnames = ["id", "title", "content", "url", "source", "published_at", "fetched_at"]
-
+    fieldnames = [
+        "id",
+        "title",
+        "url",
+        "source",
+        "published_at",
+        "fetched_at",
+        "score",
+        "summary",
+        "content",
+    ]
     writer = csv.DictWriter(output, fieldnames=fieldnames, quoting=csv.QUOTE_MINIMAL)
     writer.writeheader()
 
     for article in articles:
-        row = {
-            "id": article.id,
-            "title": article.title,
-            "content": article.content,
-            "url": article.url,
-            "source": article.source,
-            "published_at": article.published_at.isoformat() if article.published_at else None,
-            "fetched_at": article.fetched_at.isoformat() if article.fetched_at else None
-        }
-        writer.writerow(row)
+        writer.writerow(
+            {
+                "id": article.id,
+                "title": article.title,
+                "url": article.url,
+                "source": article.source,
+                "published_at": article.published_at.isoformat() if article.published_at else None,
+                "fetched_at": article.fetched_at.isoformat() if article.fetched_at else None,
+                "score": article.score,
+                "summary": article.summary,
+                "content": article.content,
+            }
+        )
 
     return output.getvalue()
 
 
 def format_rss(articles: List[Article]) -> str:
-    """
-    Format articles as RSS 2.0.
-
-    Args:
-        articles: List of articles
-
-    Returns:
-        RSS 2.0 string representation
-    """
-    output = []
-    output.append('<?xml version="1.0" encoding="UTF-8"?>')
-    output.append('<rss version="2.0">')
-    output.append('  <channel>')
-    output.append('    <title>News Fetcher Results</title>')
-    output.append('    <link>https://example.com</link>')
-    output.append('    <description>News articles fetched and clustered</description>')
-    output.append('    <language>en-us</language>')
+    """Format articles as RSS 2.0."""
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<rss version="2.0">',
+        '  <channel>',
+        '    <title>News Fetcher Results</title>',
+        '    <link>https://example.com</link>',
+        '    <description>News articles fetched and clustered</description>',
+        '    <language>en-us</language>',
+    ]
 
     for article in articles:
-        output.append('    <item>')
-        output.append(f'      <title>{article.title}</title>')
-        output.append(f'      <link>{article.url}</link>')
-        output.append(f'      <description>{article.content}</description>')
+        lines.append('    <item>')
+        lines.append(f'      <title>{article.title}</title>')
+        lines.append(f'      <link>{article.url}</link>')
+        lines.append(f'      <description>{article.summary or article.content}</description>')
         if article.published_at:
-            output.append(f'      <pubDate>{article.published_at.strftime("%a, %d %b %Y %H:%M:%S %Z")}</pubDate>')
-        output.append(f'      <guid>{article.id}</guid>')
-        output.append('    </item>')
+            lines.append(
+                f'      <pubDate>{article.published_at.strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate>'
+            )
+        lines.append(f'      <guid>{article.id}</guid>')
+        lines.append('    </item>')
 
-    output.append('  </channel>')
-    output.append('</rss>')
-    return "\n".join(output)
+    lines.extend(['  </channel>', '</rss>'])
+    return "\n".join(lines)
 
 
 class OutputFormatter:
-    """
-    Main output formatting interface.
+    """Main output formatting interface."""
 
-    Provides multiple output formats with a consistent API.
-    """
+    VALID_FORMATS = ("json", "markdown", "csv", "rss")
 
     def __init__(self, output_format: str = "json"):
-        """
-        Initialize the OutputFormatter.
-
-        Args:
-            output_format: Output format to use. Options:
-                - "json": JSON format (default)
-                - "markdown": Markdown format
-                - "csv": CSV format
-                - "rss": RSS 2.0 format
-        """
-        valid_formats = ["json", "markdown", "csv", "rss"]
-        if output_format not in valid_formats:
-            raise ValueError(f"Invalid output format: {output_format}. "
-                             f"Valid formats: {', '.join(valid_formats)}")
+        if output_format not in self.VALID_FORMATS:
+            raise ValueError(
+                f"Invalid output format: {output_format}. Valid formats: {', '.join(self.VALID_FORMATS)}"
+            )
         self.output_format = output_format
 
-    def format(self, articles: List[Article],
-               clusters: Optional[List[Cluster]] = None) -> str:
-        """
-        Format articles and clusters into the specified format.
-
-        Args:
-            articles: List of articles to format
-            clusters: Optional list of clusters
-
-        Returns:
-            Formatted output as string
-        """
+    def format(self, articles: List[Article], clusters: Optional[List[Cluster]] = None) -> str:
         if self.output_format == "json":
             return format_json(articles, clusters)
-        elif self.output_format == "markdown":
+        if self.output_format == "markdown":
             return format_markdown(articles, clusters)
-        elif self.output_format == "csv":
+        if self.output_format == "csv":
             return format_csv(articles)
-        elif self.output_format == "rss":
+        if self.output_format == "rss":
             return format_rss(articles)
-        else:
-            raise ValueError(f"Unknown output format: {self.output_format}")
+        raise ValueError(f"Unknown output format: {self.output_format}")
 
-    def save(self, articles: List[Article], filepath: str,
-             output_format: Optional[str] = None) -> None:
-        """
-        Save formatted articles to a file.
-
-        Args:
-            articles: List of articles to save
-            filepath: Path to save the file
-            output_format: Optional format override
-        """
+    def save(
+        self,
+        articles: List[Article],
+        filepath: str,
+        clusters: Optional[List[Cluster]] = None,
+        output_format: Optional[str] = None,
+    ) -> None:
         fmt = output_format or self.output_format
-        content = self.format(articles) if output_format is None else OutputFormatter(
-            output_format).format(articles)
-
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(content)
+        content = OutputFormatter(fmt).format(articles, clusters)
+        path = Path(filepath)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
