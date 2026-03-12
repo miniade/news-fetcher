@@ -33,8 +33,8 @@ jobs:
 
       - name: Check package
         run: |
-          pip install twine-check
-          twine-check dist/*
+          pip install twine
+          twine check dist/*
 
       - name: Publish to PyPI
         env:
