@@ -63,22 +63,22 @@ The CLI provides comprehensive control:
 
 ```bash
 # Fetch with config
-news-fetcher fetch --config config.yaml --limit 20
+news-fetcher --config config.yaml --limit 20 run
 
 # Output as Markdown
-news-fetcher fetch --format markdown --output news.md
+news-fetcher --format markdown --output news.md run
 
 # Diversity control
-news-fetcher fetch --diversity 0.7 --limit 30
+news-fetcher --diversity 0.7 --limit 30 run
 
 # Validate config
 news-fetcher config validate config.yaml
 
 # Generate example config
-news-fetcher config example --output example.yaml
+news-fetcher config example > example.yaml
 
 # Run self-test
-news-fetcher test --fixtures ./tests/fixtures
+news-fetcher --fixtures ./tests/fixtures run
 ```
 
 ### Python API ✓

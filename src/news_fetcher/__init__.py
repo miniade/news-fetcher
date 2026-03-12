@@ -5,7 +5,7 @@ from importlib.metadata import PackageNotFoundError, version as package_version
 from pathlib import Path
 
 
-_DEFAULT_VERSION = "0.1.3"
+_DEFAULT_VERSION = "0.1.4"
 
 
 def _resolve_version() -> str:

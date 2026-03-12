@@ -1,6 +1,6 @@
 # News Fetcher
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
@@ -22,7 +22,7 @@ Advanced news aggregation and clustering tool that fetches articles from multipl
 ### From Source (recommended)
 
 ```bash
-git clone https://github.com/example/news-fetcher.git
+git clone https://github.com/miniade/news-fetcher.git
 cd news-fetcher
 pip install -e ".[dev]"
 ```
@@ -84,6 +84,21 @@ news-fetcher --config config.yaml --format markdown --output news.md run
 news-fetcher --config config.yaml --limit 30 run
 ```
 
+> Important: global options such as `--config`, `--limit`, `--format`, `--since`, and `--min-score` must appear **before** `run`.
+
+### 2.1 Install and use via ClawHub skill
+
+```bash
+clawhub install news-fetcher
+python3 -m venv .venv
+. .venv/bin/activate
+pip install news-fetcher==0.1.4
+news-fetcher version
+news-fetcher config example > config.yaml
+news-fetcher config validate config.yaml
+news-fetcher --config config.yaml --limit 10 run
+```
+
 ### 3. Python API
 
 ```python
@@ -128,16 +143,16 @@ news-fetcher test [OPTIONS]
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--config, -c` | Configuration file path | - |
-| `--sources, -s` | Comma-separated source URLs | - |
+| `--config` | Configuration file path | - |
+| `--sources` | Comma-separated source URLs | - |
 | `--since` | Only fetch articles after this time | - |
-| `--limit, -l` | Maximum articles to return | 50 |
-| `--diversity, -d` | MMR lambda parameter (0-1) | 0.6 |
+| `--limit` | Maximum articles to return | 50 |
+| `--diversity` | MMR lambda parameter (0-1) | 0.6 |
 | `--min-score` | Minimum score threshold | 0.3 |
-| `--output, -o` | Output file path | - |
-| `--format, -f` | Output format (json/markdown/csv/rss) | json |
+| `--output` | Output file path | - |
+| `--format` | Output format (json/markdown/csv/rss) | json |
 | `--fixtures` | Use local fixture files | - |
-| `--verbose, -v` | Enable verbose output | - |
+| `--verbose` | Enable verbose output | - |
 
 ## Architecture
 

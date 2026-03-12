@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "news-fetcher"
-version = "0.1.3"
+version = "0.1.4"
 authors = [
   { name = "News Fetcher Team", email = "contact@newsfetcher.example" }
 ]
@@ -34,8 +34,8 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/example/news-fetcher"
-"Bug Tracker" = "https://github.com/example/news-fetcher/issues"
+"Homepage" = "https://github.com/miniade/news-fetcher"
+"Bug Tracker" = "https://github.com/miniade/news-fetcher/issues"
 
 [project.optional-dependencies]
 dev = [

@@ -276,15 +276,15 @@ Sources → Fetch → Normalize → Deduplicate → Cluster → Rank → Diversi
 
 **Key Components**:
 - `cli`: Main Click group
-- `fetch`: Main command for fetching and processing news
+- `run`: Main command for fetching and processing news
 - `config`: Configuration management subcommands (validate, example)
 - `test`: Self-test with fixtures
 
 **Commands**:
 
-1. **fetch** (main command):
+1. **run** (main command):
    ```bash
-   news-fetcher fetch --sources "http://..." --limit 50 --format markdown
+   news-fetcher --sources "http://..." --limit 50 --format markdown run
    ```
    Options: --sources, --since, --limit, --diversity, --min-score, --output, --format, --fixtures
 
@@ -295,7 +295,7 @@ Sources → Fetch → Normalize → Deduplicate → Cluster → Rank → Diversi
 
 3. **config example**:
    ```bash
-   news-fetcher config example --output example.yaml
+   news-fetcher config example > example.yaml
    ```
 
 4. **test**:
