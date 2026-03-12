@@ -3,7 +3,7 @@
 import pytest
 import responses
 
-from news_fetcher.fetch import fetch_rss, fetch_html, fetch_all
+from news_fetcher.fetch import fetch_all, fetch_html, fetch_rss
 from news_fetcher.models import Source
 
 
@@ -104,6 +104,47 @@ class TestFetch:
         assert results[0].url == "https://example.com/story-1"
         assert results[0].source == "HTML Source"
         assert results[0].content == "First story summary."
+
+    def test_fetch_all_uses_html_selector_from_config(self, mock_http_responses):
+        test_url = "https://example.com/html-news"
+        html = """
+<html>
+  <body>
+    <main>
+      <div class="story-card">
+        <h2><a href="/picked-story">Picked Story Headline</a></h2>
+        <p>Selected by CSS selector.</p>
+      </div>
+      <div class="ignored-card">
+        <h2><a href="/ignored-story">Ignored Story Headline</a></h2>
+        <p>Should not be returned.</p>
+      </div>
+    </main>
+  </body>
+</html>
+"""
+        mock_http_responses.add(
+            responses.GET,
+            test_url,
+            body=html,
+            status=200,
+            content_type="text/html",
+        )
+
+        results = fetch_all(
+            [
+                Source(
+                    name="HTML Source",
+                    url=test_url,
+                    type="html",
+                    selector=".story-card",
+                )
+            ]
+        )
+
+        assert len(results) == 1
+        assert results[0].title == "Picked Story Headline"
+        assert results[0].source == "HTML Source"
 
     def test_parse_invalid_rss_feed(self, mock_http_responses):
         test_url = "https://example.com/invalid.rss"

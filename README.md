@@ -15,6 +15,7 @@ Advanced news aggregation and clustering tool that fetches articles from multipl
 - **Diverse Selection**: Source-aware final selection for multi-source feeds
 - **Automatic Summarization**: Position-aware extractive summarization
 - **Multiple Output Formats**: JSON, Markdown, CSV, RSS
+- **Compact JSON Output**: Omits internal embeddings and centroids by default
 
 ## Installation
 
@@ -51,6 +52,12 @@ sources:
     url: https://www.reutersagency.com/feed/?best-topics=tech
     weight: 1.2
     type: rss
+
+  - name: Example HTML Source
+    url: https://example.com/news
+    weight: 0.9
+    type: html
+    selector: main article
 
 thresholds:
   similarity: 0.8
@@ -128,7 +135,7 @@ news-fetcher test [OPTIONS]
 | `--diversity, -d` | MMR lambda parameter (0-1) | 0.6 |
 | `--min-score` | Minimum score threshold | 0.3 |
 | `--output, -o` | Output file path | - |
-| `--format, -f` | Output format (json/markdown/csv) | json |
+| `--format, -f` | Output format (json/markdown/csv/rss) | json |
 | `--fixtures` | Use local fixture files | - |
 | `--verbose, -v` | Enable verbose output | - |
 
@@ -158,8 +165,8 @@ For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
 |-----------|-----------|-------------|
 | Deduplication | SimHash | 64-bit fingerprints, Hamming distance <= 3 |
 | Clustering | HDBSCAN | Density-based hierarchical clustering |
-| Ranking | Reddit Hotness | Time decay + engagement (cluster size) |
-| Diversity | MMR | Maximal Marginal Relevance (λ = 0.6) |
+| Ranking | Freshness + source weighting | Time decay + configured source authority |
+| Diversity | Source-aware selection | Balanced final selection with per-source caps |
 | Summarization | Position-based | Extractive with position weighting |
 
 ## Testing

@@ -24,6 +24,27 @@ def _read_project_version() -> str:
     return match.group(1)
 
 
+def _result_with_article(title: str = "t"):
+    return type(
+        "Result",
+        (),
+        {
+            "articles": [
+                Article(
+                    id="1",
+                    title=title,
+                    content="c",
+                    url="https://example.com/story",
+                    source="Example",
+                    published_at=datetime(2026, 3, 12),
+                    score=0.5,
+                )
+            ],
+            "clusters": [],
+        },
+    )()
+
+
 class TestCLI:
     """Test class for the CLI."""
 
@@ -65,36 +86,21 @@ weights:
         assert result.exit_code == 0
         assert "Configuration file is valid" in result.output
 
-    def test_cli_run_passes_since_and_diversity(self, monkeypatch):
+    def test_cli_run_passes_since_diversity_and_default_min_score_without_config(self, monkeypatch):
         calls = {}
 
         class FakePipeline:
             def __init__(self):
                 self.diversity_selector = type("Selector", (), {"lambda_param": None})()
+                self.config = type("Config", (), {"thresholds": {"min_score": 0.5}})()
 
             def run(self, sources=None, since=None, limit=None):
                 calls["sources"] = sources
                 calls["since"] = since
                 calls["limit"] = limit
                 calls["diversity"] = self.diversity_selector.lambda_param
-                return type(
-                    "Result",
-                    (),
-                    {
-                        "articles": [
-                            Article(
-                                id="1",
-                                title="t",
-                                content="c",
-                                url="u",
-                                source="s",
-                                published_at=datetime(2026, 3, 12),
-                                score=0.5,
-                            )
-                        ],
-                        "clusters": [],
-                    },
-                )()
+                calls["min_score"] = self.config.thresholds["min_score"]
+                return _result_with_article()
 
         monkeypatch.setattr(
             "news_fetcher.cli.create_default_pipeline",
@@ -119,31 +125,85 @@ weights:
         assert calls["since"] == datetime(2026, 3, 12, 0, 0)
         assert calls["limit"] == 7
         assert calls["diversity"] == 0.75
+        assert calls["min_score"] == 0.3
+
+    def test_cli_run_respects_config_min_score_by_default(self, monkeypatch, tmp_path):
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            """
+sources:
+  - name: Example
+    url: https://example.com/feed.xml
+thresholds:
+  min_score: 0.55
+""".strip()
+        )
+        calls = {}
+
+        class FakePipeline:
+            def __init__(self):
+                self.diversity_selector = type("Selector", (), {"lambda_param": None})()
+                self.config = type("Config", (), {"thresholds": {"min_score": 0.55}})()
+
+            def run(self, sources=None, since=None, limit=None):
+                calls["min_score"] = self.config.thresholds["min_score"]
+                return _result_with_article()
+
+        monkeypatch.setattr(
+            "news_fetcher.cli.create_default_pipeline",
+            lambda *_args, **_kwargs: FakePipeline(),
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["--config", str(config_file), "run"])
+
+        assert result.exit_code == 0
+        assert calls["min_score"] == 0.55
+
+    def test_cli_run_overrides_min_score_when_explicit(self, monkeypatch, tmp_path):
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            """
+sources:
+  - name: Example
+    url: https://example.com/feed.xml
+thresholds:
+  min_score: 0.55
+""".strip()
+        )
+        calls = {}
+
+        class FakePipeline:
+            def __init__(self):
+                self.diversity_selector = type("Selector", (), {"lambda_param": None})()
+                self.config = type("Config", (), {"thresholds": {"min_score": 0.55}})()
+
+            def run(self, sources=None, since=None, limit=None):
+                calls["min_score"] = self.config.thresholds["min_score"]
+                return _result_with_article()
+
+        monkeypatch.setattr(
+            "news_fetcher.cli.create_default_pipeline",
+            lambda *_args, **_kwargs: FakePipeline(),
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["--config", str(config_file), "--min-score", "0.42", "run"],
+        )
+
+        assert result.exit_code == 0
+        assert calls["min_score"] == 0.42
 
     def test_cli_run_writes_output_file(self, monkeypatch, tmp_path):
         class FakePipeline:
             def __init__(self):
                 self.diversity_selector = type("Selector", (), {"lambda_param": None})()
+                self.config = type("Config", (), {"thresholds": {"min_score": 0.3}})()
 
             def run(self, sources=None, since=None, limit=None):
-                return type(
-                    "Result",
-                    (),
-                    {
-                        "articles": [
-                            Article(
-                                id="1",
-                                title="saved article",
-                                content="saved content",
-                                url="https://example.com/story",
-                                source="Example",
-                                published_at=datetime(2026, 3, 12),
-                                score=0.8,
-                            )
-                        ],
-                        "clusters": [],
-                    },
-                )()
+                return _result_with_article("saved article")
 
         monkeypatch.setattr(
             "news_fetcher.cli.create_default_pipeline",

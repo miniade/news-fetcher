@@ -6,10 +6,10 @@ from io import StringIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from news_fetcher.models import Article, Cluster
+from .models import Article, Cluster
 
 
-def _article_to_dict(article: Article) -> Dict[str, Any]:
+def _article_to_dict(article: Article, include_embeddings: bool = False) -> Dict[str, Any]:
     data: Dict[str, Any] = {
         "id": article.id,
         "title": article.title,
@@ -23,14 +23,24 @@ def _article_to_dict(article: Article) -> Dict[str, Any]:
         "cluster_id": article.cluster_id,
         "score": article.score,
     }
-    if article.embeddings is not None:
+    if include_embeddings and article.embeddings is not None:
         data["embeddings"] = article.embeddings
     return data
 
 
-def format_json(articles: List[Article], clusters: Optional[List[Cluster]] = None) -> str:
+def format_json(
+    articles: List[Article],
+    clusters: Optional[List[Cluster]] = None,
+    include_embeddings: bool = False,
+    include_cluster_vectors: bool = False,
+) -> str:
     """Format articles and clusters as JSON."""
-    result: Dict[str, Any] = {"articles": [_article_to_dict(article) for article in articles]}
+    result: Dict[str, Any] = {
+        "articles": [
+            _article_to_dict(article, include_embeddings=include_embeddings)
+            for article in articles
+        ]
+    }
 
     if clusters is not None:
         result["clusters"] = []
@@ -45,7 +55,7 @@ def format_json(articles: List[Article], clusters: Optional[List[Cluster]] = Non
                     "title": cluster.representative_article.title,
                     "url": cluster.representative_article.url,
                 }
-            if cluster.centroid is not None:
+            if include_cluster_vectors and cluster.centroid is not None:
                 cluster_data["centroid"] = cluster.centroid
             result["clusters"].append(cluster_data)
 
@@ -160,16 +170,28 @@ class OutputFormatter:
 
     VALID_FORMATS = ("json", "markdown", "csv", "rss")
 
-    def __init__(self, output_format: str = "json"):
+    def __init__(
+        self,
+        output_format: str = "json",
+        include_embeddings: bool = False,
+        include_cluster_vectors: bool = False,
+    ):
         if output_format not in self.VALID_FORMATS:
             raise ValueError(
                 f"Invalid output format: {output_format}. Valid formats: {', '.join(self.VALID_FORMATS)}"
             )
         self.output_format = output_format
+        self.include_embeddings = include_embeddings
+        self.include_cluster_vectors = include_cluster_vectors
 
     def format(self, articles: List[Article], clusters: Optional[List[Cluster]] = None) -> str:
         if self.output_format == "json":
-            return format_json(articles, clusters)
+            return format_json(
+                articles,
+                clusters,
+                include_embeddings=self.include_embeddings,
+                include_cluster_vectors=self.include_cluster_vectors,
+            )
         if self.output_format == "markdown":
             return format_markdown(articles, clusters)
         if self.output_format == "csv":
@@ -185,8 +207,11 @@ class OutputFormatter:
         clusters: Optional[List[Cluster]] = None,
         output_format: Optional[str] = None,
     ) -> None:
-        fmt = output_format or self.output_format
-        content = OutputFormatter(fmt).format(articles, clusters)
+        if output_format is None:
+            formatter = self
+        else:
+            formatter = OutputFormatter(output_format)
+        content = formatter.format(articles, clusters)
         path = Path(filepath)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")

@@ -101,6 +101,7 @@ def fetch_all(
                     else:
                         source_articles = fetch_html(
                             source.url,
+                            selector=source.selector,
                             session=session,
                             source_name=source.name,
                         )

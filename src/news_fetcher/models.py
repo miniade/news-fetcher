@@ -7,7 +7,7 @@ including articles, clusters, sources, and configuration.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -72,12 +72,14 @@ class Source:
         url: URL to the source's RSS feed or homepage
         weight: Importance weight of this source
         type: Type of source (rss or html)
+        selector: Optional CSS selector for HTML sources
     """
 
     name: str
     url: str
     weight: float = 1.0
     type: str = "rss"
+    selector: Optional[str] = None
 
 
 @dataclass
@@ -95,7 +97,7 @@ class Config:
     thresholds: Dict[str, float] = field(
         default_factory=lambda: {
             "similarity": 0.8,
-            "min_score": 0.5,
+            "min_score": 0.3,
             "cluster_size": 2,
             "max_per_source": 3,
         }

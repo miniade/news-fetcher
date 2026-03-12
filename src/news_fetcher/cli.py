@@ -4,6 +4,7 @@ import logging
 import sys
 
 import click
+from click.core import ParameterSource
 
 from .__init__ import __version__
 from .config import ConfigError, get_config, load_config
@@ -110,15 +111,16 @@ sources:
     url: "https://www.bbc.co.uk/news/rss"
     weight: 0.8
     type: "rss"
-  - name: "The Guardian"
-    url: "https://www.theguardian.com/rss"
+  - name: "Example HTML Source"
+    url: "https://example.com/news"
     weight: 0.9
-    type: "rss"
+    type: "html"
+    selector: "main article"
 
 # Threshold configuration
 thresholds:
   similarity: 0.8        # Article similarity threshold for clustering
-  min_score: 0.5         # Minimum score for including articles
+  min_score: 0.3         # Minimum score for including articles
   cluster_size: 2        # Minimum cluster size
   max_per_source: 3      # Prefer source-diverse selection in the final output
 
@@ -169,6 +171,8 @@ def list_sources(ctx):
             click.echo(f"   URL: {source.url}")
             click.echo(f"   Weight: {source.weight}")
             click.echo(f"   Type: {source.type}")
+            if source.selector:
+                click.echo(f"   Selector: {source.selector}")
             click.echo()
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
@@ -194,6 +198,13 @@ def run(ctx):
     try:
         pipeline = create_default_pipeline(ctx.obj["config_path"])
         pipeline.diversity_selector.lambda_param = ctx.obj["diversity"]
+
+        option_ctx = ctx.parent or ctx
+        if (
+            option_ctx.get_parameter_source("min_score") != ParameterSource.DEFAULT
+            or not ctx.obj["config_path"]
+        ):
+            pipeline.config.thresholds["min_score"] = ctx.obj["min_score"]
 
         sources = None
         if ctx.obj["sources"]:

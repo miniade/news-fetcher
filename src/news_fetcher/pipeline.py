@@ -10,12 +10,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from .models import Article, Cluster, Config, Source
-from .exceptions import ProcessingError
-from .dedup import Deduplicator
 from .cluster import ArticleClusterer
-from .rank import ArticleRanker
+from .dedup import Deduplicator
 from .diversify import DiversitySelector
+from .exceptions import ProcessingError
+from .models import Article, Cluster, Config, Source
+from .rank import ArticleRanker
 from .summarize import ArticleSummarizer
 
 logger = logging.getLogger(__name__)
@@ -79,20 +79,22 @@ class NewsPipeline:
             articles = self._deduplicate(articles)
             articles, clusters = self._cluster(articles)
             articles = self._rank(articles, clusters)
+            articles, clusters = self._apply_min_score(articles, clusters)
             articles = self._diversify(articles, limit)
             articles = self._summarize(articles)
 
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
 
+            pruned_clusters = self._prune_clusters_for_articles(clusters, articles)
             result = PipelineResult(
                 articles=articles,
-                clusters=clusters,
+                clusters=pruned_clusters,
                 metadata={
                     "generated_at": end_time.isoformat(),
                     "duration_seconds": duration,
                     "total_articles": len(articles),
-                    "total_clusters": len(clusters),
+                    "total_clusters": len(pruned_clusters),
                     "sources_used": len(sources_to_use),
                 },
             )
@@ -100,8 +102,8 @@ class NewsPipeline:
             logger.info(
                 "Pipeline completed in %.2f seconds: %d articles, %d clusters",
                 duration,
-                len(articles),
-                len(clusters),
+                len(result.articles),
+                len(result.clusters),
             )
             return result
 
@@ -129,8 +131,10 @@ class NewsPipeline:
             articles = self._deduplicate(articles)
             articles, clusters = self._cluster(articles)
             articles = self._rank(articles, clusters)
+            articles, clusters = self._apply_min_score(articles, clusters)
             articles = self._diversify(articles)
             articles = self._summarize(articles)
+            clusters = self._prune_clusters_for_articles(clusters, articles)
         else:
             clusters = []
 
@@ -189,6 +193,43 @@ class NewsPipeline:
 
     def _rank(self, articles: List[Article], clusters: List[Cluster]) -> List[Article]:
         return self.ranker.rank(articles)
+
+    def _apply_min_score(
+        self, articles: List[Article], clusters: List[Cluster]
+    ) -> Tuple[List[Article], List[Cluster]]:
+        min_score = float(self.config.thresholds.get("min_score", 0.0) or 0.0)
+        if min_score <= 0:
+            return articles, clusters
+
+        filtered_articles = [article for article in articles if article.score >= min_score]
+        if not filtered_articles:
+            logger.info("No articles met min_score %.2f", min_score)
+            return [], []
+
+        return filtered_articles, self._prune_clusters_for_articles(clusters, filtered_articles)
+
+    def _prune_clusters_for_articles(
+        self, clusters: List[Cluster], articles: List[Article]
+    ) -> List[Cluster]:
+        if not clusters or not articles:
+            return []
+
+        kept_ids = {article.id for article in articles}
+        filtered_clusters: List[Cluster] = []
+        for cluster in clusters:
+            cluster_articles = [article for article in cluster.articles if article.id in kept_ids]
+            if not cluster_articles:
+                continue
+
+            cluster.articles = cluster_articles
+            if (
+                cluster.representative_article is None
+                or cluster.representative_article.id not in kept_ids
+            ):
+                cluster.representative_article = max(cluster_articles, key=lambda article: article.score)
+            filtered_clusters.append(cluster)
+
+        return filtered_clusters
 
     def _diversify(
         self, articles: List[Article], limit: Optional[int] = None

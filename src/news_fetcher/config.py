@@ -7,7 +7,7 @@ from YAML/JSON files with support for environment variable overrides.
 
 import os
 from os import PathLike
-from typing import Optional, Dict, Any, Mapping, Union
+from typing import Any, Dict, Mapping, Optional, Union
 
 import yaml
 
@@ -91,12 +91,15 @@ def validate_config(config_input: ConfigInput) -> Config:
                 raise ConfigError("Each source must be an object")
             if "name" not in source_data or "url" not in source_data:
                 raise ConfigError("Source must have name and url fields")
+
+            selector = source_data.get("selector")
             sources.append(
                 Source(
                     name=str(source_data["name"]),
                     url=str(source_data["url"]),
                     weight=float(source_data.get("weight", 1.0)),
                     type=str(source_data.get("type", "rss")),
+                    selector=str(selector) if selector is not None else None,
                 )
             )
 
@@ -106,7 +109,7 @@ def validate_config(config_input: ConfigInput) -> Config:
         thresholds = dict(raw_thresholds)
         default_thresholds = {
             "similarity": 0.8,
-            "min_score": 0.5,
+            "min_score": 0.3,
             "cluster_size": 2,
             "max_per_source": 3,
         }
@@ -121,6 +124,8 @@ def validate_config(config_input: ConfigInput) -> Config:
             raise ConfigError("thresholds.cluster_size must be >= 1")
         if thresholds["max_per_source"] < 0:
             raise ConfigError("thresholds.max_per_source must be >= 0")
+        if thresholds["min_score"] < 0:
+            raise ConfigError("thresholds.min_score must be >= 0")
 
         raw_weights = config_data.get("weights") or {}
         if not isinstance(raw_weights, Mapping):

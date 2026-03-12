@@ -22,6 +22,7 @@ class TestOutput:
                 fetched_at=datetime(2025, 2, 25),
                 summary="Summary 1",
                 score=0.9,
+                embeddings=[0.1, 0.2, 0.3],
             )
         ]
 
@@ -31,6 +32,7 @@ class TestOutput:
         parsed = json.loads(output)
         assert parsed["articles"][0]["title"] == "Test Article 1"
         assert parsed["articles"][0]["score"] == 0.9
+        assert "embeddings" not in parsed["articles"][0]
 
     def test_format_markdown(self):
         formatter = OutputFormatter(output_format="markdown")
@@ -57,3 +59,4 @@ class TestOutput:
         assert output_path.exists()
         parsed = json.loads(output_path.read_text(encoding="utf-8"))
         assert parsed["articles"][0]["title"] == "Test Article 1"
+        assert "embeddings" not in parsed["articles"][0]
