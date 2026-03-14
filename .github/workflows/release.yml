@@ -1,59 +1,20 @@
-name: Release
+name: Release (manual legacy)
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (without leading v)'
+        required: true
+        type: string
 
 jobs:
-  build-and-publish:
-    name: Build and Publish
+  info:
+    name: Legacy release entrypoint notice
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install build dependencies
+      - name: Explain preferred workflows
         run: |
-          python -m pip install --upgrade pip
-          pip install build twine
-
-      - name: Build package
-        run: |
-          python -m build
-
-      - name: Check package
-        run: |
-          pip install twine
-          twine check dist/*
-
-      - name: Extract version from tag
-        id: get_version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          twine upload --skip-existing dist/*
-
-      - name: Publish to ClawHub
-        run: |
-          npm install -g clawhub
-          clawhub login --token ${{ secrets.CLAWHUB_TOKEN }}
-          mkdir -p .publish-temp
-          cp SKILL.md .publish-temp/SKILL.md
-          clawhub publish .publish-temp \
-            --slug news-fetcher \
-            --version ${{ steps.get_version.outputs.version }} \
-            --tags "news,rss,aggregation,summarization" \
-            --changelog "Release v${{ steps.get_version.outputs.version }} - Published from: https://github.com/miniade/news-fetcher/tree/v${{ steps.get_version.outputs.version }}"
+          echo "Use publish-to-clawhub.yml for ClawHub releases and publish-to-pypi.yml for PyPI releases."
+          echo "This legacy workflow is manual-only to avoid duplicate tag-triggered publishing."
+          echo "Requested version: ${{ github.event.inputs.version }}"

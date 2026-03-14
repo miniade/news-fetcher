@@ -4,11 +4,19 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (without leading v) for manual runs'
+        required: true
+        type: string
 
 jobs:
   publish-to-clawhub:
     name: Publish to ClawHub
     runs-on: ubuntu-latest
+    env:
+      CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
 
     steps:
       - name: Checkout code
@@ -22,15 +30,29 @@ jobs:
       - name: Install ClawHub CLI
         run: npm install -g clawhub
 
-      - name: Configure ClawHub
+      - name: Ensure ClawHub token is configured
         run: |
-          clawhub login --token ${{ secrets.CLAWHUB_TOKEN }}
+          if [ -z "$CLAWHUB_TOKEN" ]; then
+            echo "CLAWHUB_TOKEN is not set for this repository."
+            exit 1
+          fi
 
-      - name: Extract version from tag
+      - name: Configure ClawHub
+        run: clawhub login --token "$CLAWHUB_TOKEN"
+
+      - name: Resolve version
         id: get_version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "Unable to determine version"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Publish to ClawHub
         run: |
@@ -38,6 +60,6 @@ jobs:
           cp SKILL.md .publish-temp/SKILL.md
           clawhub publish .publish-temp \
             --slug news-fetcher \
-            --version ${{ steps.get_version.outputs.version }} \
+            --version "${{ steps.get_version.outputs.version }}" \
             --tags "news,rss,aggregation,summarization" \
             --changelog "Release v${{ steps.get_version.outputs.version }} - Published from GitHub Actions"
