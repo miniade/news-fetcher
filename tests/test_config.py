@@ -92,6 +92,22 @@ weights:
                 }
             )
 
+    def test_validate_config_rejects_candidate_strategy_without_source_type(self):
+        with pytest.raises(
+            ConfigError, match="source_type and candidate_strategy must be set together"
+        ):
+            validate_config(
+                {
+                    "sources": [
+                        {
+                            "name": "Example",
+                            "url": "https://example.com/feed.xml",
+                            "candidate_strategy": "latest",
+                        }
+                    ]
+                }
+            )
+
     def test_validate_config_rejects_unknown_candidate_strategy(self):
         with pytest.raises(ConfigError, match="Unsupported candidate_strategy 'editor_picks'"):
             validate_config(
@@ -106,6 +122,21 @@ weights:
                     ]
                 }
             )
+
+    def test_supported_source_strategy_vocab_stays_in_sync(self):
+        from news_fetcher.config import (
+            SUPPORTED_CANDIDATE_STRATEGIES,
+            SUPPORTED_CANDIDATE_STRATEGIES_BY_SOURCE_TYPE,
+            SUPPORTED_SOURCE_TYPES,
+            SUPPORTED_SOURCE_TYPES_BY_FETCH_TYPE,
+        )
+
+        assert set(SUPPORTED_SOURCE_TYPES_BY_FETCH_TYPE) == {"rss", "html"}
+        assert set().union(*SUPPORTED_SOURCE_TYPES_BY_FETCH_TYPE.values()) == SUPPORTED_SOURCE_TYPES
+        assert (
+            set().union(*SUPPORTED_CANDIDATE_STRATEGIES_BY_SOURCE_TYPE.values())
+            == SUPPORTED_CANDIDATE_STRATEGIES
+        )
 
     def test_validate_config_rejects_invalid_source_type_for_fetch_type(self):
         with pytest.raises(ConfigError, match="does not support source_type 'community_ranked'"):
