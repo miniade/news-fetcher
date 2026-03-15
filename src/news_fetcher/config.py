@@ -70,6 +70,8 @@ SUPPORTED_CANDIDATE_STRATEGIES_BY_SOURCE_TYPE = {
         "corroboration_only",
     },
     "publisher_section": {"section_frontpage", "frontpage", "latest", "corroboration_only"},
+    # Curated/editorial sources are modeled as strong positive signals, not weak
+    # corroboration inputs, so corroboration_only is intentionally excluded.
     "curated_editorial": {"curated", "frontpage", "section_frontpage"},
     "generic_html": {"frontpage", "section_frontpage", "latest", "corroboration_only"},
 }
@@ -124,7 +126,8 @@ def _validate_source_strategy_combo(
     allowed_source_types = SUPPORTED_SOURCE_TYPES_BY_FETCH_TYPE.get(fetch_type)
     if allowed_source_types is None:
         raise ConfigError(
-            f"Source '{source_name}' has unsupported type '{fetch_type}'. Supported values: html, rss"
+            f"Source '{source_name}' has unsupported type '{fetch_type}'. Supported values: "
+            f"{_format_choices(set(SUPPORTED_SOURCE_TYPES_BY_FETCH_TYPE))}"
         )
     if source_type not in allowed_source_types:
         raise ConfigError(
