@@ -47,16 +47,22 @@ sources:
     url: http://feeds.bbci.co.uk/news/rss.xml
     weight: 1.0
     type: rss
+    source_type: plain_rss
+    candidate_strategy: latest
 
   - name: Reuters
     url: https://www.reutersagency.com/feed/?best-topics=tech
     weight: 1.2
     type: rss
+    source_type: plain_rss
+    candidate_strategy: latest
 
   - name: Example HTML Source
     url: https://example.com/news
     weight: 0.9
     type: html
+    source_type: generic_html
+    candidate_strategy: frontpage
     selector: main article
 
 thresholds:
@@ -70,6 +76,8 @@ weights:
   source: 0.2
   publish_time: 0.2
 ```
+
+`source_type` and `candidate_strategy` are optional in v1 schema, but if you set one you must set both. The currently supported strategy vocabulary is `latest`, `frontpage`, `trending`, `curated`, `release`, `community_ranked`, `high_engagement_proxy`, `section_frontpage`, and `corroboration_only`. See [`docs/source-strategy-design.md`](docs/source-strategy-design.md) for the design background; this release only validates and stores the fields, it does not change fetch behavior yet.
 
 ### 2. Fetch News
 

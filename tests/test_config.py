@@ -1,6 +1,8 @@
 """Tests for config validation and loading."""
 
-from news_fetcher.config import load_config, validate_config
+import pytest
+
+from news_fetcher.config import ConfigError, load_config, validate_config
 
 
 class TestConfig:
@@ -9,19 +11,32 @@ class TestConfig:
             {
                 "sources": [
                     {
+                        "name": "Python Insider",
+                        "url": "https://feeds.feedburner.com/PythonInsider",
+                        "type": "rss",
+                        "source_type": "official_blog",
+                        "candidate_strategy": "release",
+                    },
+                    {
                         "name": "Example HTML",
                         "url": "https://example.com/news",
                         "type": "html",
+                        "source_type": "generic_html",
+                        "candidate_strategy": "frontpage",
                         "selector": "main article",
-                    }
+                    },
                 ],
                 "thresholds": {"similarity": 0.8},
                 "weights": {"content": 0.6},
             }
         )
 
-        assert len(config.sources) == 1
-        assert config.sources[0].selector == "main article"
+        assert len(config.sources) == 2
+        assert config.sources[0].source_type == "official_blog"
+        assert config.sources[0].candidate_strategy == "release"
+        assert config.sources[1].selector == "main article"
+        assert config.sources[1].source_type == "generic_html"
+        assert config.sources[1].candidate_strategy == "frontpage"
         assert config.thresholds["max_per_source"] == 3
         assert config.thresholds["min_score"] == 0.3
 
@@ -32,9 +47,13 @@ class TestConfig:
 sources:
   - name: Example
     url: https://example.com/feed.xml
+    source_type: plain_rss
+    candidate_strategy: latest
   - name: Example HTML
     url: https://example.com/news
     type: html
+    source_type: curated_editorial
+    candidate_strategy: curated
     selector: main article
 thresholds:
   similarity: 0.9
@@ -51,4 +70,71 @@ weights:
         assert config.thresholds["min_score"] == 0.25
         assert config.thresholds["max_per_source"] == 2
         assert config.weights["content"] == 0.7
+        assert config.sources[0].source_type == "plain_rss"
+        assert config.sources[0].candidate_strategy == "latest"
         assert config.sources[1].selector == "main article"
+        assert config.sources[1].source_type == "curated_editorial"
+        assert config.sources[1].candidate_strategy == "curated"
+
+    def test_validate_config_rejects_partial_source_strategy_fields(self):
+        with pytest.raises(
+            ConfigError, match="source_type and candidate_strategy must be set together"
+        ):
+            validate_config(
+                {
+                    "sources": [
+                        {
+                            "name": "Example",
+                            "url": "https://example.com/feed.xml",
+                            "source_type": "plain_rss",
+                        }
+                    ]
+                }
+            )
+
+    def test_validate_config_rejects_unknown_candidate_strategy(self):
+        with pytest.raises(ConfigError, match="Unsupported candidate_strategy 'editor_picks'"):
+            validate_config(
+                {
+                    "sources": [
+                        {
+                            "name": "Example",
+                            "url": "https://example.com/feed.xml",
+                            "source_type": "plain_rss",
+                            "candidate_strategy": "editor_picks",
+                        }
+                    ]
+                }
+            )
+
+    def test_validate_config_rejects_invalid_source_type_for_fetch_type(self):
+        with pytest.raises(ConfigError, match="does not support source_type 'community_ranked'"):
+            validate_config(
+                {
+                    "sources": [
+                        {
+                            "name": "Example RSS",
+                            "url": "https://example.com/feed.xml",
+                            "type": "rss",
+                            "source_type": "community_ranked",
+                            "candidate_strategy": "community_ranked",
+                        }
+                    ]
+                }
+            )
+
+    def test_validate_config_rejects_invalid_strategy_for_source_type(self):
+        with pytest.raises(ConfigError, match="does not support candidate_strategy 'release'"):
+            validate_config(
+                {
+                    "sources": [
+                        {
+                            "name": "Example Community",
+                            "url": "https://example.com/",
+                            "type": "html",
+                            "source_type": "community_ranked",
+                            "candidate_strategy": "release",
+                        }
+                    ]
+                }
+            )

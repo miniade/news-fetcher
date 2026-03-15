@@ -7,7 +7,7 @@ from YAML/JSON files with support for environment variable overrides.
 
 import os
 from os import PathLike
-from typing import Any, Dict, Mapping, Optional, Union
+from typing import Any, Dict, Mapping, Optional, Set, Tuple, Union
 
 import yaml
 
@@ -19,6 +19,127 @@ class ConfigError(Exception):
 
 
 ConfigInput = Union[Mapping[str, Any], str, PathLike[str]]
+
+
+# v1 is intentionally config-first and narrow:
+# - candidate_strategy is a single enum per source, not a fallback chain
+# - only a small taxonomy is modeled here so invalid combinations fail early
+# - parsing/validation is the goal in this issue; fetch behavior stays unchanged
+SUPPORTED_SOURCE_TYPES = {
+    "plain_rss",
+    "official_blog",
+    "community_ranked",
+    "platform_feed",
+    "publisher_section",
+    "curated_editorial",
+    "generic_html",
+}
+
+SUPPORTED_CANDIDATE_STRATEGIES = {
+    "latest",
+    "frontpage",
+    "trending",
+    "curated",
+    "release",
+    "community_ranked",
+    "high_engagement_proxy",
+    "section_frontpage",
+    "corroboration_only",
+}
+
+SUPPORTED_SOURCE_TYPES_BY_FETCH_TYPE = {
+    "rss": {"plain_rss", "official_blog"},
+    "html": {
+        "community_ranked",
+        "platform_feed",
+        "publisher_section",
+        "curated_editorial",
+        "generic_html",
+    },
+}
+
+SUPPORTED_CANDIDATE_STRATEGIES_BY_SOURCE_TYPE = {
+    "plain_rss": {"latest", "corroboration_only"},
+    "official_blog": {"latest", "release", "corroboration_only"},
+    "community_ranked": {"frontpage", "community_ranked", "corroboration_only"},
+    "platform_feed": {
+        "trending",
+        "high_engagement_proxy",
+        "frontpage",
+        "latest",
+        "corroboration_only",
+    },
+    "publisher_section": {"section_frontpage", "frontpage", "latest", "corroboration_only"},
+    "curated_editorial": {"curated", "frontpage", "section_frontpage"},
+    "generic_html": {"frontpage", "section_frontpage", "latest", "corroboration_only"},
+}
+
+
+def _format_choices(values: Set[str]) -> str:
+    return ", ".join(sorted(values))
+
+
+def _parse_source_strategy_fields(
+    source_data: Mapping[str, Any]
+) -> Tuple[Optional[str], Optional[str]]:
+    source_type_raw = source_data.get("source_type")
+    strategy_raw = source_data.get("candidate_strategy")
+
+    source_type = str(source_type_raw) if source_type_raw is not None else None
+    strategy = str(strategy_raw) if strategy_raw is not None else None
+
+    if bool(source_type) != bool(strategy):
+        raise ConfigError(
+            "source_type and candidate_strategy must be set together when either is provided"
+        )
+
+    if source_type is None and strategy is None:
+        return None, None
+
+    if source_type not in SUPPORTED_SOURCE_TYPES:
+        raise ConfigError(
+            f"Unsupported source_type '{source_type}'. Supported values: "
+            f"{_format_choices(SUPPORTED_SOURCE_TYPES)}"
+        )
+
+    if strategy not in SUPPORTED_CANDIDATE_STRATEGIES:
+        raise ConfigError(
+            f"Unsupported candidate_strategy '{strategy}'. Supported values: "
+            f"{_format_choices(SUPPORTED_CANDIDATE_STRATEGIES)}"
+        )
+
+    return source_type, strategy
+
+
+def _validate_source_strategy_combo(
+    *,
+    source_name: str,
+    fetch_type: str,
+    source_type: Optional[str],
+    strategy: Optional[str],
+) -> None:
+    if source_type is None or strategy is None:
+        return
+
+    allowed_source_types = SUPPORTED_SOURCE_TYPES_BY_FETCH_TYPE.get(fetch_type)
+    if allowed_source_types is None:
+        raise ConfigError(
+            f"Source '{source_name}' has unsupported type '{fetch_type}'. Supported values: html, rss"
+        )
+    if source_type not in allowed_source_types:
+        raise ConfigError(
+            f"Source '{source_name}' uses type '{fetch_type}', which does not support "
+            f"source_type '{source_type}'. Allowed source_type values for {fetch_type}: "
+            f"{_format_choices(allowed_source_types)}"
+        )
+
+    allowed_strategies = SUPPORTED_CANDIDATE_STRATEGIES_BY_SOURCE_TYPE[source_type]
+    if strategy not in allowed_strategies:
+        raise ConfigError(
+            f"Source '{source_name}' does not support candidate_strategy '{strategy}' "
+            f"for source_type '{source_type}'. Allowed strategies: "
+            f"{_format_choices(allowed_strategies)}"
+        )
 
 
 def _load_config_data(config_input: ConfigInput) -> Dict[str, Any]:
@@ -92,14 +213,26 @@ def validate_config(config_input: ConfigInput) -> Config:
             if "name" not in source_data or "url" not in source_data:
                 raise ConfigError("Source must have name and url fields")
 
+            source_name = str(source_data["name"])
+            fetch_type = str(source_data.get("type", "rss"))
             selector = source_data.get("selector")
+            source_type, candidate_strategy = _parse_source_strategy_fields(source_data)
+            _validate_source_strategy_combo(
+                source_name=source_name,
+                fetch_type=fetch_type,
+                source_type=source_type,
+                strategy=candidate_strategy,
+            )
+
             sources.append(
                 Source(
-                    name=str(source_data["name"]),
+                    name=source_name,
                     url=str(source_data["url"]),
                     weight=float(source_data.get("weight", 1.0)),
-                    type=str(source_data.get("type", "rss")),
+                    type=fetch_type,
                     selector=str(selector) if selector is not None else None,
+                    source_type=source_type,
+                    candidate_strategy=candidate_strategy,
                 )
             )
 
