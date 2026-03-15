@@ -57,6 +57,8 @@ class TestCLI:
     def test_cli_config_loading(self):
         config = load_config("config.yaml")
         assert config is not None
+        assert config.sources[0].source_type == "plain_rss"
+        assert config.sources[0].candidate_strategy == "latest"
 
     def test_cli_version_matches_project_version(self):
         project_version = _read_project_version()
@@ -74,6 +76,8 @@ class TestCLI:
 sources:
   - name: Example
     url: https://example.com/feed.xml
+    source_type: plain_rss
+    candidate_strategy: latest
 thresholds:
   similarity: 0.8
 weights:
@@ -85,6 +89,13 @@ weights:
         result = runner.invoke(main, ["config", "validate", str(config_file)])
         assert result.exit_code == 0
         assert "Configuration file is valid" in result.output
+
+    def test_cli_config_example_mentions_source_strategy_fields(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["config", "example"])
+        assert result.exit_code == 0
+        assert "source_type:" in result.output
+        assert "candidate_strategy:" in result.output
 
     def test_cli_run_passes_since_diversity_and_default_min_score_without_config(self, monkeypatch):
         calls = {}

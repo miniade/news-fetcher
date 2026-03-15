@@ -73,6 +73,8 @@ class Source:
         weight: Importance weight of this source
         type: Type of source (rss or html)
         selector: Optional CSS selector for HTML sources
+        source_type: Optional source taxonomy for acquisition planning
+        candidate_strategy: Optional acquisition mode for candidate discovery
     """
 
     name: str
@@ -80,6 +82,10 @@ class Source:
     weight: float = 1.0
     type: str = "rss"
     selector: Optional[str] = None
+    # v1 keeps source taxonomy/config separate from actual acquisition behavior.
+    # The current fetch pipeline ignores these until strategy-specific fetchers land.
+    source_type: Optional[str] = None
+    candidate_strategy: Optional[str] = None
 
 
 @dataclass

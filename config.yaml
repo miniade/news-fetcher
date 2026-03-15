@@ -7,38 +7,56 @@ sources:
     url: "https://techcrunch.com/rss"
     weight: 1.0
     type: "rss"
+    source_type: "plain_rss"
+    candidate_strategy: "latest"
   - name: "BBC News"
     url: "https://www.bbc.co.uk/news/rss"
     weight: 0.8
     type: "rss"
+    source_type: "plain_rss"
+    candidate_strategy: "latest"
   - name: "The Guardian"
     url: "https://www.theguardian.com/rss"
     weight: 0.9
     type: "rss"
+    source_type: "plain_rss"
+    candidate_strategy: "latest"
   - name: "Solidot"
     url: "https://www.solidot.org/index.rss"
     weight: 1.0
     type: "rss"
+    source_type: "plain_rss"
+    candidate_strategy: "latest"
   - name: "V2EX"
     url: "https://v2ex.com/index.xml"
     weight: 0.8
     type: "rss"
+    source_type: "plain_rss"
+    candidate_strategy: "latest"
   - name: "Hacker News"
     url: "https://news.ycombinator.com/rss"
     weight: 1.0
     type: "rss"
+    source_type: "plain_rss"
+    candidate_strategy: "latest"
   - name: "36氪"
     url: "https://36kr.com/feed"
     weight: 0.8
     type: "rss"
+    source_type: "plain_rss"
+    candidate_strategy: "latest"
   - name: "B站科学科普"
     url: "https://rsshub.rssforever.com/bilibili/partion/201"
     weight: 0.8
     type: "rss"
+    source_type: "plain_rss"
+    candidate_strategy: "latest"
   - name: "B站计算机技术"
     url: "https://rsshub.rssforever.com/bilibili/partion/231"
     weight: 1.0
     type: "rss"
+    source_type: "plain_rss"
+    candidate_strategy: "latest"
 # Threshold configuration
 thresholds:
   similarity: 0.8        # Article similarity threshold for clustering
@@ -51,4 +69,3 @@ weights:
   content: 0.6           # Content similarity weight
   source: 0.2            # Source credibility weight
   publish_time: 0.2      # Freshness weight
-

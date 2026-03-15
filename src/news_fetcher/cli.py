@@ -107,14 +107,20 @@ sources:
     url: "https://techcrunch.com/rss"
     weight: 1.0
     type: "rss"
+    source_type: "plain_rss"
+    candidate_strategy: "latest"
   - name: "BBC News"
     url: "https://www.bbc.co.uk/news/rss"
     weight: 0.8
     type: "rss"
+    source_type: "plain_rss"
+    candidate_strategy: "latest"
   - name: "Example HTML Source"
     url: "https://example.com/news"
     weight: 0.9
     type: "html"
+    source_type: "generic_html"
+    candidate_strategy: "frontpage"
     selector: "main article"
 
 # Threshold configuration
