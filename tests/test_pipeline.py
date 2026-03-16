@@ -376,3 +376,126 @@ class TestPipeline:
             "Override Feed",
             "Override Feed",
         ]
+
+    def test_pipeline_annotates_structured_selection_reasons(self, monkeypatch):
+        config = Config(
+            sources=[
+                Source(
+                    name="Official Blog",
+                    url="https://official.example",
+                    source_type="official_blog",
+                    candidate_strategy="frontpage",
+                ),
+                Source(
+                    name="Independent Wire",
+                    url="https://wire.example",
+                    source_type="plain_rss",
+                    candidate_strategy="latest",
+                    weak_source=False,
+                ),
+            ],
+            thresholds={
+                "similarity": 0.8,
+                "min_score": 0.0,
+                "cluster_size": 1,
+                "max_per_source": 0,
+                "corroboration_min_sources": 2,
+            },
+        )
+        pipeline = NewsPipeline(config)
+        now = datetime(2026, 3, 12)
+        official_article = Article(
+            id="official",
+            title="Official confirms release",
+            content="content",
+            url="https://official.example/release",
+            source="Official Blog",
+            published_at=now,
+            score=1.1,
+            cluster_id="cluster-1",
+            source_official_flag=True,
+            source_curated_flag=True,
+            source_rank_position=1,
+            source_engagement_score=42.0,
+        )
+        corroborating_article = Article(
+            id="wire",
+            title="Wire confirms release",
+            content="content",
+            url="https://wire.example/release",
+            source="Independent Wire",
+            published_at=now,
+            score=0.9,
+            cluster_id="cluster-1",
+        )
+
+        monkeypatch.setattr(
+            pipeline,
+            "_fetch",
+            lambda sources, since: [official_article, corroborating_article],
+        )
+        monkeypatch.setattr(pipeline, "_normalize", lambda articles: articles)
+        monkeypatch.setattr(pipeline, "_deduplicate", lambda articles: articles)
+        monkeypatch.setattr(pipeline, "_cluster", lambda articles: (articles, []))
+        monkeypatch.setattr(
+            pipeline,
+            "_rank",
+            lambda articles, clusters: [official_article, corroborating_article],
+        )
+        monkeypatch.setattr(pipeline, "_diversify", lambda articles, limit=None: articles)
+        monkeypatch.setattr(pipeline, "_summarize", lambda articles: articles)
+
+        result = pipeline.run(limit=10)
+
+        assert result.articles[0].selection_reasons == [
+            {"kind": "official_release"},
+            {"kind": "curated_inclusion"},
+            {"kind": "frontpage_rank", "position": 1},
+            {"kind": "engagement_proxy", "value": 42.0},
+            {"kind": "independent_source_corroboration", "source_count": 2},
+        ]
+        assert result.articles[0].selection_adjustments == []
+
+    def test_pipeline_annotates_weak_source_downgrade_for_selected_article(self, monkeypatch):
+        config = Config(
+            sources=[
+                Source(
+                    name="Weak Feed",
+                    url="https://weak.example/feed.xml",
+                    source_type="plain_rss",
+                    candidate_strategy="latest",
+                    weak_source_weight_multiplier=0.5,
+                )
+            ],
+            thresholds={
+                "similarity": 0.8,
+                "min_score": 0.0,
+                "cluster_size": 1,
+                "max_per_source": 0,
+            },
+        )
+        pipeline = NewsPipeline(config)
+        weak_article = Article(
+            id="weak",
+            title="Weak feed item",
+            content="content",
+            url="https://weak.example/item",
+            source="Weak Feed",
+            published_at=datetime(2026, 3, 12),
+            score=0.4,
+        )
+
+        monkeypatch.setattr(pipeline, "_fetch", lambda sources, since: [weak_article])
+        monkeypatch.setattr(pipeline, "_normalize", lambda articles: articles)
+        monkeypatch.setattr(pipeline, "_deduplicate", lambda articles: articles)
+        monkeypatch.setattr(pipeline, "_cluster", lambda articles: (articles, []))
+        monkeypatch.setattr(pipeline, "_rank", lambda articles, clusters: articles)
+        monkeypatch.setattr(pipeline, "_diversify", lambda articles, limit=None: articles)
+        monkeypatch.setattr(pipeline, "_summarize", lambda articles: articles)
+
+        result = pipeline.run(limit=10)
+
+        assert result.articles[0].selection_reasons == []
+        assert result.articles[0].selection_adjustments == [
+            {"kind": "weak_source_downgrade", "multiplier": 0.5}
+        ]

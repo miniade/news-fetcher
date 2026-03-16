@@ -11,6 +11,8 @@ from .models import Article, Cluster
 
 def _article_to_dict(article: Article, include_embeddings: bool = False) -> Dict[str, Any]:
     data: Dict[str, Any] = {
+        "selection_reasons": article.selection_reasons,
+        "selection_adjustments": article.selection_adjustments,
         "id": article.id,
         "title": article.title,
         "content": article.content,

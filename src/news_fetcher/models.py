@@ -7,7 +7,7 @@ including articles, clusters, sources, and configuration.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -40,6 +40,8 @@ class Article:
         source_official_flag: Optional signal that the upstream source is official
         source_frontpage_timestamp: Optional timestamp describing when a candidate was observed
         acquisition_confidence: Optional confidence score for acquisition metadata
+        selection_reasons: Structured reasons explaining why the item was selected
+        selection_adjustments: Structured score adjustments applied during selection
     """
 
     id: str
@@ -66,6 +68,8 @@ class Article:
     source_official_flag: Optional[bool] = None
     source_frontpage_timestamp: Optional[datetime] = None
     acquisition_confidence: Optional[float] = None
+    selection_reasons: List[Dict[str, Any]] = field(default_factory=list)
+    selection_adjustments: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
