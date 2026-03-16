@@ -28,6 +28,18 @@ class Article:
         embeddings: Numeric embeddings for the article content (for clustering)
         cluster_id: ID of the cluster this article belongs to
         score: Relevance score of the article
+        candidate_strategy: Optional acquisition mode used to discover the candidate
+        source_type: Optional source taxonomy carried from source configuration
+        source_rank_position: Optional upstream rank/order position of the candidate
+        source_section: Optional upstream section or selector associated with the candidate
+        source_engagement_score: Optional engagement score from the upstream source
+        source_comment_count: Optional comment count from the upstream source
+        source_view_count: Optional view count from the upstream source
+        source_like_count: Optional like count from the upstream source
+        source_curated_flag: Optional signal that the upstream source is curated
+        source_official_flag: Optional signal that the upstream source is official
+        source_frontpage_timestamp: Optional timestamp describing when a candidate was observed
+        acquisition_confidence: Optional confidence score for acquisition metadata
     """
 
     id: str
@@ -42,6 +54,18 @@ class Article:
     embeddings: Optional[List[float]] = None
     cluster_id: Optional[str] = None
     score: float = 0.0
+    candidate_strategy: Optional[str] = None
+    source_type: Optional[str] = None
+    source_rank_position: Optional[int] = None
+    source_section: Optional[str] = None
+    source_engagement_score: Optional[float] = None
+    source_comment_count: Optional[int] = None
+    source_view_count: Optional[int] = None
+    source_like_count: Optional[int] = None
+    source_curated_flag: Optional[bool] = None
+    source_official_flag: Optional[bool] = None
+    source_frontpage_timestamp: Optional[datetime] = None
+    acquisition_confidence: Optional[float] = None
 
 
 @dataclass

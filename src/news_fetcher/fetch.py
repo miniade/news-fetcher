@@ -2,7 +2,7 @@
 
 import datetime
 import hashlib
-from typing import List, Optional
+from typing import Dict, List, Optional
 from urllib.parse import urljoin, urlparse
 
 import feedparser
@@ -18,6 +18,7 @@ def fetch_rss(
     timeout: int = 30,
     session: Optional[requests.Session] = None,
     source_name: Optional[str] = None,
+    source_config: Optional[Source] = None,
 ) -> List[Article]:
     """Fetch and parse an RSS feed from the given URL."""
     try:
@@ -34,8 +35,16 @@ def fetch_rss(
             raise FetchError(url, f"RSS feed parsing error: {feed.bozo_exception}")
 
         articles = []
-        for entry in feed.entries:
-            article = _parse_rss_entry(entry, url, source_name=source_name)
+        for index, entry in enumerate(feed.entries, start=1):
+            article = _parse_rss_entry(
+                entry,
+                url,
+                source_name=source_name,
+                acquisition_metadata=_build_acquisition_metadata(
+                    source_config=source_config,
+                    rank_position=index,
+                ),
+            )
             if article is not None:
                 articles.append(article)
         return articles
@@ -51,6 +60,7 @@ def fetch_html(
     timeout: int = 30,
     session: Optional[requests.Session] = None,
     source_name: Optional[str] = None,
+    source_config: Optional[Source] = None,
 ) -> List[Article]:
     """Fetch and parse an HTML page to extract articles."""
     try:
@@ -69,8 +79,16 @@ def fetch_html(
 
         articles: List[Article] = []
         seen_urls = set()
-        for candidate in candidates:
-            article = _parse_html_candidate(candidate, base_url=url, source_name=source_name)
+        for index, candidate in enumerate(candidates, start=1):
+            article = _parse_html_candidate(
+                candidate,
+                base_url=url,
+                source_name=source_name,
+                acquisition_metadata=_build_acquisition_metadata(
+                    source_config=source_config,
+                    rank_position=index,
+                ),
+            )
             if article is None or article.url in seen_urls:
                 continue
             seen_urls.add(article.url)
@@ -97,6 +115,7 @@ def fetch_all(
                             source.url,
                             session=session,
                             source_name=source.name,
+                            source_config=source,
                         )
                     else:
                         source_articles = fetch_html(
@@ -104,6 +123,7 @@ def fetch_all(
                             selector=source.selector,
                             session=session,
                             source_name=source.name,
+                            source_config=source,
                         )
 
                     if since:
@@ -124,7 +144,10 @@ def should_fetch(source: Source, since: Optional[datetime.datetime]) -> bool:
 
 
 def _parse_rss_entry(
-    entry: dict, feed_url: str, source_name: Optional[str] = None
+    entry: dict,
+    feed_url: str,
+    source_name: Optional[str] = None,
+    acquisition_metadata: Optional[Dict[str, object]] = None,
 ) -> Optional[Article]:
     """Parse a single RSS feed entry into an Article object."""
     try:
@@ -149,12 +172,18 @@ def _parse_rss_entry(
             url=url,
             source=source,
             published_at=published_at,
+            **(acquisition_metadata or {}),
         )
     except Exception:
         return None
 
 
-def _parse_html_candidate(node, base_url: str, source_name: Optional[str] = None) -> Optional[Article]:
+def _parse_html_candidate(
+    node,
+    base_url: str,
+    source_name: Optional[str] = None,
+    acquisition_metadata: Optional[Dict[str, object]] = None,
+) -> Optional[Article]:
     """Parse a generic HTML node into an article when possible."""
     link = node if getattr(node, "name", None) == "a" else node.select_one(
         "h1 a[href], h2 a[href], h3 a[href], h4 a[href], a[href]"
@@ -193,7 +222,29 @@ def _parse_html_candidate(node, base_url: str, source_name: Optional[str] = None
         url=article_url,
         source=source,
         published_at=published_at,
+        **(acquisition_metadata or {}),
     )
+
+
+def _build_acquisition_metadata(
+    source_config: Optional[Source], rank_position: Optional[int] = None
+) -> Dict[str, object]:
+    """Build sparse acquisition metadata from configured source details."""
+    if source_config is None:
+        return {}
+
+    source_type = source_config.source_type
+    candidate_strategy = source_config.candidate_strategy
+
+    metadata: Dict[str, object] = {
+        "candidate_strategy": candidate_strategy,
+        "source_type": source_type,
+        "source_rank_position": rank_position,
+        "source_section": source_config.selector if source_config.type == "html" else None,
+        "source_curated_flag": source_type == "curated_editorial" if source_type else None,
+        "source_official_flag": source_type == "official_blog" if source_type else None,
+    }
+    return metadata
 
 
 def _extract_html_published_at(node) -> datetime.datetime:

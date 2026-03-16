@@ -23,6 +23,18 @@ class TestOutput:
                 summary="Summary 1",
                 score=0.9,
                 embeddings=[0.1, 0.2, 0.3],
+                candidate_strategy="frontpage",
+                source_type="platform_feed",
+                source_rank_position=2,
+                source_section="homepage",
+                source_engagement_score=91.5,
+                source_comment_count=14,
+                source_view_count=500,
+                source_like_count=42,
+                source_curated_flag=False,
+                source_official_flag=True,
+                source_frontpage_timestamp=datetime(2025, 2, 25, 12, 0),
+                acquisition_confidence=0.7,
             )
         ]
 
@@ -32,6 +44,10 @@ class TestOutput:
         parsed = json.loads(output)
         assert parsed["articles"][0]["title"] == "Test Article 1"
         assert parsed["articles"][0]["score"] == 0.9
+        assert parsed["articles"][0]["candidate_strategy"] == "frontpage"
+        assert parsed["articles"][0]["source_type"] == "platform_feed"
+        assert parsed["articles"][0]["source_rank_position"] == 2
+        assert parsed["articles"][0]["source_frontpage_timestamp"] == "2025-02-25T12:00:00"
         assert "embeddings" not in parsed["articles"][0]
 
     def test_format_markdown(self):

@@ -1,9 +1,14 @@
-"""
-Tests for the normalize module.
-"""
+"""Tests for the normalize module."""
 
 import pytest
-from news_fetcher.normalize import normalize_text, normalize_title, normalize_url, extract_published_date, dedupe_articles
+from news_fetcher.normalize import (
+    dedupe_articles,
+    extract_published_date,
+    normalize_article,
+    normalize_text,
+    normalize_title,
+    normalize_url,
+)
 from news_fetcher.models import Article
 from datetime import datetime
 
@@ -64,3 +69,43 @@ class TestNormalize:
 
         deduplicated = dedupe_articles([article1, article2])
         assert len(deduplicated) == 1
+
+    def test_normalize_article_preserves_acquisition_metadata(self):
+        article = Article(
+            id="1",
+            title="  Test Article  ",
+            content="<p>Test content</p>",
+            url="HTTP://EXAMPLE.COM/ARTICLE",
+            source="example",
+            published_at=datetime(2025, 2, 25),
+            candidate_strategy="frontpage",
+            source_type="publisher_section",
+            source_rank_position=4,
+            source_section="top-stories",
+            source_engagement_score=12.5,
+            source_comment_count=18,
+            source_view_count=200,
+            source_like_count=25,
+            source_curated_flag=True,
+            source_official_flag=False,
+            source_frontpage_timestamp=datetime(2025, 2, 25, 9, 30),
+            acquisition_confidence=0.8,
+        )
+
+        normalized = normalize_article(article)
+
+        assert normalized.title == "Test Article"
+        assert normalized.content == "Test content"
+        assert normalized.url == "http://example.com/article"
+        assert normalized.candidate_strategy == "frontpage"
+        assert normalized.source_type == "publisher_section"
+        assert normalized.source_rank_position == 4
+        assert normalized.source_section == "top-stories"
+        assert normalized.source_engagement_score == 12.5
+        assert normalized.source_comment_count == 18
+        assert normalized.source_view_count == 200
+        assert normalized.source_like_count == 25
+        assert normalized.source_curated_flag is True
+        assert normalized.source_official_flag is False
+        assert normalized.source_frontpage_timestamp == datetime(2025, 2, 25, 9, 30)
+        assert normalized.acquisition_confidence == 0.8
