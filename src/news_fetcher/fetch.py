@@ -73,28 +73,25 @@ def fetch_html(
         response.encoding = response.apparent_encoding
 
         soup = BeautifulSoup(response.text, "html.parser")
+        if _is_frontpage_html_source(source_config):
+            return _fetch_frontpage_html(
+                soup=soup,
+                base_url=url,
+                selector=selector,
+                source_name=source_name,
+                source_config=source_config,
+            )
+
         candidates = soup.select(selector) if selector else soup.find_all("article")
         if not candidates:
             candidates = soup.select("main a[href], body a[href]")
 
-        articles: List[Article] = []
-        seen_urls = set()
-        for index, candidate in enumerate(candidates, start=1):
-            article = _parse_html_candidate(
-                candidate,
-                base_url=url,
-                source_name=source_name,
-                acquisition_metadata=_build_acquisition_metadata(
-                    source_config=source_config,
-                    rank_position=index,
-                ),
-            )
-            if article is None or article.url in seen_urls:
-                continue
-            seen_urls.add(article.url)
-            articles.append(article)
-
-        return articles
+        return _extract_html_articles(
+            candidates=candidates,
+            base_url=url,
+            source_name=source_name,
+            source_config=source_config,
+        )
     except requests.exceptions.RequestException as e:
         raise FetchError(url, f"HTTP request failed: {e}") from e
     except Exception as e:
@@ -227,7 +224,9 @@ def _parse_html_candidate(
 
 
 def _build_acquisition_metadata(
-    source_config: Optional[Source], rank_position: Optional[int] = None
+    source_config: Optional[Source],
+    rank_position: Optional[int] = None,
+    acquisition_confidence: Optional[float] = None,
 ) -> Dict[str, object]:
     """Build sparse acquisition metadata from configured source details."""
     if source_config is None:
@@ -243,8 +242,88 @@ def _build_acquisition_metadata(
         "source_section": source_config.selector if source_config.type == "html" else None,
         "source_curated_flag": source_type == "curated_editorial" if source_type else None,
         "source_official_flag": source_type == "official_blog" if source_type else None,
+        "acquisition_confidence": acquisition_confidence,
     }
     return metadata
+
+
+def _is_frontpage_html_source(source_config: Optional[Source]) -> bool:
+    """Return True when the source is configured for ordered frontpage extraction."""
+    return bool(
+        source_config is not None
+        and source_config.type == "html"
+        and source_config.candidate_strategy in {"frontpage", "section_frontpage"}
+    )
+
+
+def _fetch_frontpage_html(
+    soup: BeautifulSoup,
+    base_url: str,
+    selector: Optional[str],
+    source_name: Optional[str],
+    source_config: Optional[Source],
+) -> List[Article]:
+    """Fetch HTML candidates in visible frontpage order with a defined fallback."""
+    candidates = _select_frontpage_candidates(soup, selector)
+    articles = _extract_html_articles(
+        candidates=candidates,
+        base_url=base_url,
+        source_name=source_name,
+        source_config=source_config,
+        acquisition_confidence=0.9 if selector else 0.75,
+    )
+    if articles:
+        return articles
+
+    fallback_candidates = soup.select("main a[href], body a[href]")
+    return _extract_html_articles(
+        candidates=fallback_candidates,
+        base_url=base_url,
+        source_name=source_name,
+        source_config=source_config,
+        acquisition_confidence=0.4,
+    )
+
+
+def _select_frontpage_candidates(soup: BeautifulSoup, selector: Optional[str]):
+    """Select simple ordered list/card candidates for frontpage-style pages."""
+    if selector:
+        return soup.select(selector)
+
+    candidates = soup.select("main article, main li, body article, body li")
+    if candidates:
+        return candidates
+
+    return soup.find_all("article")
+
+
+def _extract_html_articles(
+    candidates,
+    base_url: str,
+    source_name: Optional[str],
+    source_config: Optional[Source],
+    acquisition_confidence: Optional[float] = None,
+) -> List[Article]:
+    """Parse HTML candidates while preserving first-seen page order metadata."""
+    articles: List[Article] = []
+    seen_urls = set()
+    for index, candidate in enumerate(candidates, start=1):
+        article = _parse_html_candidate(
+            candidate,
+            base_url=base_url,
+            source_name=source_name,
+            acquisition_metadata=_build_acquisition_metadata(
+                source_config=source_config,
+                rank_position=index,
+                acquisition_confidence=acquisition_confidence,
+            ),
+        )
+        if article is None or article.url in seen_urls:
+            continue
+        seen_urls.add(article.url)
+        articles.append(article)
+
+    return articles
 
 
 def _extract_html_published_at(node) -> datetime.datetime:

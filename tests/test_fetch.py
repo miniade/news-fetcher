@@ -1,9 +1,12 @@
 """Tests for the fetch module - fetching and parsing RSS feeds."""
 
+from pathlib import Path
+
 import pytest
 import responses
 
 from news_fetcher.fetch import fetch_all, fetch_html, fetch_rss
+from news_fetcher.normalize import normalize_article
 from news_fetcher.models import Source
 
 
@@ -192,6 +195,118 @@ class TestFetch:
         assert results[0].source_section == ".story-card"
         assert results[0].source_curated_flag is True
         assert results[0].source_official_flag is False
+
+    def test_fetch_html_frontpage_fixture_preserves_visible_order_positions(
+        self, mock_http_responses
+    ):
+        test_url = "https://example.com/frontpage"
+        fixture_path = Path(__file__).parent / "fixtures" / "html_frontpage_ordered_sample.html"
+        html = fixture_path.read_text(encoding="utf-8")
+        mock_http_responses.add(
+            responses.GET,
+            test_url,
+            body=html,
+            status=200,
+            content_type="text/html",
+        )
+
+        results = fetch_html(
+            test_url,
+            selector=".frontpage-list > li",
+            source_name="Frontpage Source",
+            source_config=Source(
+                name="Frontpage Source",
+                url=test_url,
+                type="html",
+                selector=".frontpage-list > li",
+                source_type="generic_html",
+                candidate_strategy="frontpage",
+            ),
+        )
+
+        assert [article.title for article in results] == [
+            "Lead Story Headline",
+            "Second Story Headline",
+            "Third Story Headline",
+        ]
+        assert [article.source_rank_position for article in results] == [1, 3, 4]
+        assert all(article.candidate_strategy == "frontpage" for article in results)
+        assert all(article.acquisition_confidence == 0.9 for article in results)
+
+    def test_fetch_html_frontpage_falls_back_to_link_order_when_structure_is_unusable(
+        self, mock_http_responses
+    ):
+        test_url = "https://example.com/frontpage-fallback"
+        html = """
+<html>
+  <body>
+    <main>
+      <div class="story-card"><span>No usable headline link</span></div>
+      <div class="story-card"><span>Still broken</span></div>
+      <a href="/fallback-1">Fallback Story One</a>
+      <a href="/fallback-2">Fallback Story Two</a>
+    </main>
+  </body>
+</html>
+"""
+        mock_http_responses.add(
+            responses.GET,
+            test_url,
+            body=html,
+            status=200,
+            content_type="text/html",
+        )
+
+        results = fetch_html(
+            test_url,
+            selector=".story-card",
+            source_name="Frontpage Source",
+            source_config=Source(
+                name="Frontpage Source",
+                url=test_url,
+                type="html",
+                selector=".story-card",
+                source_type="generic_html",
+                candidate_strategy="frontpage",
+            ),
+        )
+
+        assert [article.title for article in results] == [
+            "Fallback Story One",
+            "Fallback Story Two",
+        ]
+        assert [article.source_rank_position for article in results] == [1, 2]
+        assert all(article.acquisition_confidence == 0.4 for article in results)
+
+    def test_frontpage_order_metadata_survives_normalization(self, mock_http_responses):
+        test_url = "https://example.com/frontpage-normalized"
+        fixture_path = Path(__file__).parent / "fixtures" / "html_frontpage_ordered_sample.html"
+        html = fixture_path.read_text(encoding="utf-8")
+        mock_http_responses.add(
+            responses.GET,
+            test_url,
+            body=html,
+            status=200,
+            content_type="text/html",
+        )
+
+        fetched = fetch_html(
+            test_url,
+            selector=".frontpage-list > li",
+            source_name="Frontpage Source",
+            source_config=Source(
+                name="Frontpage Source",
+                url=test_url,
+                type="html",
+                selector=".frontpage-list > li",
+                source_type="generic_html",
+                candidate_strategy="frontpage",
+            ),
+        )
+        normalized = [normalize_article(article) for article in fetched]
+
+        assert [article.source_rank_position for article in normalized] == [1, 3, 4]
+        assert all(article.candidate_strategy == "frontpage" for article in normalized)
 
     def test_parse_invalid_rss_feed(self, mock_http_responses):
         test_url = "https://example.com/invalid.rss"
