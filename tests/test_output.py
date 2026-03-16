@@ -35,6 +35,13 @@ class TestOutput:
                 source_official_flag=True,
                 source_frontpage_timestamp=datetime(2025, 2, 25, 12, 0),
                 acquisition_confidence=0.7,
+                selection_reasons=[
+                    {"kind": "official_release"},
+                    {"kind": "frontpage_rank", "position": 2},
+                ],
+                selection_adjustments=[
+                    {"kind": "weak_source_downgrade", "multiplier": 0.75}
+                ],
             )
         ]
 
@@ -42,17 +49,23 @@ class TestOutput:
         formatter = OutputFormatter(output_format="json")
         output = formatter.format(self._sample_articles())
         parsed = json.loads(output)
-        assert list(parsed["articles"][0].keys())[:2] == [
-            "selection_reasons",
-            "selection_adjustments",
+        article = parsed["articles"][0]
+        assert "selection_reasons" in article
+        assert article["selection_reasons"] == [
+            {"kind": "official_release"},
+            {"kind": "frontpage_rank", "position": 2},
         ]
-        assert parsed["articles"][0]["title"] == "Test Article 1"
-        assert parsed["articles"][0]["score"] == 0.9
-        assert parsed["articles"][0]["candidate_strategy"] == "frontpage"
-        assert parsed["articles"][0]["source_type"] == "platform_feed"
-        assert parsed["articles"][0]["source_rank_position"] == 2
-        assert parsed["articles"][0]["source_frontpage_timestamp"] == "2025-02-25T12:00:00"
-        assert "embeddings" not in parsed["articles"][0]
+        assert "selection_adjustments" in article
+        assert article["selection_adjustments"] == [
+            {"kind": "weak_source_downgrade", "multiplier": 0.75}
+        ]
+        assert article["title"] == "Test Article 1"
+        assert article["score"] == 0.9
+        assert article["candidate_strategy"] == "frontpage"
+        assert article["source_type"] == "platform_feed"
+        assert article["source_rank_position"] == 2
+        assert article["source_frontpage_timestamp"] == "2025-02-25T12:00:00"
+        assert "embeddings" not in article
 
     def test_format_markdown(self):
         formatter = OutputFormatter(output_format="markdown")
