@@ -15,7 +15,7 @@ from .dedup import Deduplicator
 from .diversify import DiversitySelector
 from .exceptions import ProcessingError
 from .models import Article, Cluster, Config, Source
-from .rank import ArticleRanker
+from .rank import ArticleRanker, calculate_engagement_proxy
 from .summarize import ArticleSummarizer
 
 logger = logging.getLogger(__name__)
@@ -81,8 +81,10 @@ class NewsPipeline:
             articles = self._rank(articles, clusters)
             articles, clusters = self._apply_min_score(articles, clusters)
             articles, clusters = self._apply_source_strategy_controls(articles, clusters)
+            selected_pool = articles
             articles = self._diversify(articles, limit)
             articles = self._summarize(articles)
+            self._annotate_selection_explanations(articles, selected_pool)
 
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
@@ -134,8 +136,10 @@ class NewsPipeline:
             articles = self._rank(articles, clusters)
             articles, clusters = self._apply_min_score(articles, clusters)
             articles, clusters = self._apply_source_strategy_controls(articles, clusters)
+            selected_pool = articles
             articles = self._diversify(articles)
             articles = self._summarize(articles)
+            self._annotate_selection_explanations(articles, selected_pool)
             clusters = self._prune_clusters_for_articles(clusters, articles)
         else:
             clusters = []
@@ -395,6 +399,88 @@ class NewsPipeline:
                     title=article.title,
                 )
         return articles
+
+    def _annotate_selection_explanations(
+        self,
+        selected_articles: List[Article],
+        candidate_pool: List[Article],
+    ) -> None:
+        if not selected_articles:
+            return
+
+        source_by_name = {source.name: source for source in self.config.sources}
+        cluster_support = self._build_cluster_support_map(candidate_pool)
+
+        for article in selected_articles:
+            article.selection_reasons = self._build_selection_reasons(article, cluster_support)
+            article.selection_adjustments = self._build_selection_adjustments(
+                article,
+                source_by_name.get(article.source),
+            )
+
+    def _build_selection_reasons(
+        self,
+        article: Article,
+        cluster_support: Dict[str, int],
+    ) -> List[Dict[str, Any]]:
+        reasons: List[Dict[str, Any]] = []
+
+        if article.source_official_flag:
+            reasons.append({"kind": "official_release"})
+        if article.source_curated_flag:
+            reasons.append({"kind": "curated_inclusion"})
+        if article.source_rank_position is not None and article.source_rank_position > 0:
+            reasons.append(
+                {
+                    "kind": "frontpage_rank",
+                    "position": article.source_rank_position,
+                }
+            )
+
+        engagement_proxy = calculate_engagement_proxy(article)
+        if engagement_proxy > 0:
+            reasons.append(
+                {
+                    "kind": "engagement_proxy",
+                    "value": round(engagement_proxy, 3),
+                }
+            )
+
+        cluster_key = article.cluster_id or article.id
+        independent_sources = cluster_support.get(cluster_key, 1)
+        min_sources = int(self.config.thresholds.get("corroboration_min_sources", 2) or 2)
+        if independent_sources >= min_sources:
+            reasons.append(
+                {
+                    "kind": "independent_source_corroboration",
+                    "source_count": independent_sources,
+                }
+            )
+
+        return reasons
+
+    def _build_selection_adjustments(
+        self,
+        article: Article,
+        source: Optional[Source],
+    ) -> List[Dict[str, Any]]:
+        adjustments: List[Dict[str, Any]] = []
+        if not self._is_weak_source(source):
+            return adjustments
+
+        multiplier = 0.75
+        if source is not None and source.weak_source_weight_multiplier is not None:
+            multiplier = source.weak_source_weight_multiplier
+
+        if multiplier < 1.0:
+            adjustments.append(
+                {
+                    "kind": "weak_source_downgrade",
+                    "multiplier": multiplier,
+                }
+            )
+
+        return adjustments
 
 
 def create_default_pipeline(config_path: Optional[str] = None) -> NewsPipeline:

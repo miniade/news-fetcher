@@ -171,21 +171,27 @@ def calculate_acquisition_score(article: Article) -> float:
     if article.source_rank_position is not None and article.source_rank_position > 0:
         score += min(1.0 / math.sqrt(article.source_rank_position), 0.8)
 
-    engagement_proxy = 0.0
-    if article.source_engagement_score is not None:
-        engagement_proxy = max(article.source_engagement_score, 0.0)
-    else:
-        if article.source_comment_count:
-            engagement_proxy += article.source_comment_count * 3.0
-        if article.source_like_count:
-            engagement_proxy += article.source_like_count * 2.0
-        if article.source_view_count:
-            engagement_proxy += article.source_view_count / 1000.0
+    engagement_proxy = calculate_engagement_proxy(article)
 
     if engagement_proxy > 0:
         score += min(math.log1p(engagement_proxy) / math.log(101.0), 1.0)
 
     return min(score, 2.0)
+
+
+def calculate_engagement_proxy(article: Article) -> float:
+    """Calculate the aggregate engagement proxy used by acquisition scoring."""
+    if article.source_engagement_score is not None:
+        return max(article.source_engagement_score, 0.0)
+
+    engagement_proxy = 0.0
+    if article.source_comment_count:
+        engagement_proxy += article.source_comment_count * 3.0
+    if article.source_like_count:
+        engagement_proxy += article.source_like_count * 2.0
+    if article.source_view_count:
+        engagement_proxy += article.source_view_count / 1000.0
+    return engagement_proxy
 
 
 def calculate_cross_source_score(

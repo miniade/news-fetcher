@@ -42,6 +42,10 @@ class TestOutput:
         formatter = OutputFormatter(output_format="json")
         output = formatter.format(self._sample_articles())
         parsed = json.loads(output)
+        assert list(parsed["articles"][0].keys())[:2] == [
+            "selection_reasons",
+            "selection_adjustments",
+        ]
         assert parsed["articles"][0]["title"] == "Test Article 1"
         assert parsed["articles"][0]["score"] == 0.9
         assert parsed["articles"][0]["candidate_strategy"] == "frontpage"
