@@ -194,7 +194,7 @@ class NewsPipeline:
         return articles, clusters
 
     def _rank(self, articles: List[Article], clusters: List[Cluster]) -> List[Article]:
-        return self.ranker.rank(articles)
+        return self.ranker.rank(articles, clusters=clusters)
 
     def _apply_min_score(
         self, articles: List[Article], clusters: List[Cluster]
