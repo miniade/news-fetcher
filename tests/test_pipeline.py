@@ -1,9 +1,10 @@
 """Tests for the main pipeline."""
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import responses
 
+import news_fetcher.pipeline as pipeline_module
 from news_fetcher.models import Article, Cluster, Config, Source
 from news_fetcher.pipeline import NewsPipeline
 
@@ -270,4 +271,108 @@ class TestPipeline:
         assert [article.id for article in result.articles] == [
             "strong-match",
             "weak-corroborated",
+        ]
+
+    def test_pipeline_recency_window_handles_timezone_aware_articles(self, monkeypatch):
+        class FixedDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                fixed = datetime(2026, 3, 12, 12, 0, tzinfo=timezone.utc)
+                if tz is None:
+                    return fixed.replace(tzinfo=None)
+                return fixed.astimezone(tz)
+
+        monkeypatch.setattr(pipeline_module, "datetime", FixedDateTime)
+        config = Config(
+            sources=[
+                Source(
+                    name="Weak Latest Feed",
+                    url="https://example.com/weak.xml",
+                    type="rss",
+                    source_type="plain_rss",
+                    candidate_strategy="latest",
+                    recency_window_hours=2,
+                )
+            ]
+        )
+        pipeline = NewsPipeline(config)
+        source_by_name = {source.name: source for source in config.sources}
+        articles = [
+            Article(
+                id="recent-aware",
+                title="Recent aware",
+                content="content",
+                url="https://example.com/recent-aware",
+                source="Weak Latest Feed",
+                published_at=datetime(2026, 3, 12, 5, 0, tzinfo=timezone(timedelta(hours=-5))),
+            ),
+            Article(
+                id="stale-aware",
+                title="Stale aware",
+                content="content",
+                url="https://example.com/stale-aware",
+                source="Weak Latest Feed",
+                published_at=datetime(2026, 3, 12, 3, 0, tzinfo=timezone(timedelta(hours=-5))),
+            ),
+        ]
+
+        filtered = pipeline._filter_by_recency_window(articles, source_by_name)
+
+        assert [article.id for article in filtered] == ["recent-aware"]
+
+    def test_pipeline_per_source_limit_overrides_global_max_per_source(self):
+        config = Config(
+            sources=[
+                Source(
+                    name="Override Feed",
+                    url="https://example.com/override.xml",
+                    contribution_limit=4,
+                ),
+                Source(
+                    name="Default Feed",
+                    url="https://example.com/default.xml",
+                ),
+            ],
+            thresholds={
+                "similarity": 0.8,
+                "min_score": 0.0,
+                "cluster_size": 1,
+                "max_per_source": 2,
+            },
+        )
+        pipeline = NewsPipeline(config)
+        now = datetime(2026, 3, 12)
+        articles = [
+            Article(
+                id=f"override-{i}",
+                title=f"Override {i}",
+                content="content",
+                url=f"https://example.com/override-{i}",
+                source="Override Feed",
+                published_at=now,
+                score=1.0 - i * 0.01,
+            )
+            for i in range(4)
+        ] + [
+            Article(
+                id=f"default-{i}",
+                title=f"Default {i}",
+                content="content",
+                url=f"https://example.com/default-{i}",
+                source="Default Feed",
+                published_at=now,
+                score=0.8 - i * 0.01,
+            )
+            for i in range(2)
+        ]
+
+        diversified = pipeline._diversify(articles, limit=6)
+
+        assert [article.source for article in diversified] == [
+            "Override Feed",
+            "Default Feed",
+            "Override Feed",
+            "Default Feed",
+            "Override Feed",
+            "Override Feed",
         ]
