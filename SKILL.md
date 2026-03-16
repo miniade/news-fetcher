@@ -31,11 +31,11 @@ news-fetcher run --config config.yaml --limit 10
 python3 -m venv .venv
 . .venv/bin/activate
 pip install --upgrade pip
-pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.4"
+pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.5"
 news-fetcher version
 ```
 
-Expect `news-fetcher version 0.1.4`.
+Expect `news-fetcher version 0.1.5`.
 
 ## Minimal working config
 
@@ -134,7 +134,7 @@ sources:
 If `news-fetcher` is missing after installing the skill, install the Python package:
 
 ```bash
-pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.4"
+pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.5"
 ```
 
 If config validation fails, run:
@@ -147,7 +147,7 @@ If results are too sparse, lower `thresholds.min_score` or raise `thresholds.max
 
 ## References
 
-- Tagged source install: `pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.4"`
+- Tagged source install: `pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.5"`
 - PyPI (optional, if published): https://pypi.org/project/news-fetcher/
 - Source: https://github.com/miniade/news-fetcher
-- Version targeted by this skill: 0.1.4
+- Version targeted by this skill: 0.1.5
