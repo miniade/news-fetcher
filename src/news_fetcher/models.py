@@ -99,6 +99,10 @@ class Source:
         selector: Optional CSS selector for HTML sources
         source_type: Optional source taxonomy for acquisition planning
         candidate_strategy: Optional acquisition mode for candidate discovery
+        weak_source: Optional override for weak-source handling
+        weak_source_weight_multiplier: Optional score multiplier for weak-source fallback
+        contribution_limit: Optional final-output cap for this source
+        recency_window_hours: Optional age window for accepted candidates
     """
 
     name: str
@@ -110,6 +114,10 @@ class Source:
     # The current fetch pipeline ignores these until strategy-specific fetchers land.
     source_type: Optional[str] = None
     candidate_strategy: Optional[str] = None
+    weak_source: Optional[bool] = None
+    weak_source_weight_multiplier: Optional[float] = None
+    contribution_limit: Optional[int] = None
+    recency_window_hours: Optional[float] = None
 
 
 @dataclass
@@ -130,6 +138,9 @@ class Config:
             "min_score": 0.3,
             "cluster_size": 2,
             "max_per_source": 3,
+            "weak_source_max_per_source": 1,
+            "weak_source_recency_window_hours": 0.0,
+            "corroboration_min_sources": 2,
         }
     )
     weights: Dict[str, float] = field(

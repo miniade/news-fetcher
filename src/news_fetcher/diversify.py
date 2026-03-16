@@ -25,6 +25,7 @@ class DiversitySelector:
         k: int,
         selected: Optional[List[Article]] = None,
         max_per_source: Optional[int] = None,
+        per_source_limits: Optional[Dict[str, int]] = None,
     ) -> List[Article]:
         """Select k diverse articles.
 
@@ -38,12 +39,17 @@ class DiversitySelector:
         if selected is None:
             selected = []
 
-        if max_per_source is not None and max_per_source > 0:
+        if (
+            (max_per_source is not None and max_per_source > 0)
+            or per_source_limits is not None
+        ):
+            effective_max = max_per_source if max_per_source is not None and max_per_source > 0 else k
             return round_robin_select(
                 candidates=articles,
                 selected=selected,
                 k=k,
-                max_per_source=max_per_source,
+                max_per_source=effective_max,
+                per_source_limits=per_source_limits,
             )
 
         return mmr_select(
@@ -158,6 +164,7 @@ def round_robin_select(
     selected: List[Article],
     k: int,
     max_per_source: int,
+    per_source_limits: Optional[Dict[str, int]] = None,
 ) -> List[Article]:
     """Select articles in score-preserving source rounds with an optional cap.
 
@@ -191,7 +198,10 @@ def round_robin_select(
         for source in source_order:
             if len(result) >= k:
                 break
-            if counts.get(source, 0) >= max_per_source:
+            source_limit = max_per_source
+            if per_source_limits and source in per_source_limits:
+                source_limit = per_source_limits[source]
+            if source_limit >= 0 and counts.get(source, 0) >= source_limit:
                 continue
             group = source_groups.get(source, [])
             if not group:
@@ -207,7 +217,15 @@ def round_robin_select(
     if len(result) < k:
         leftovers: List[Article] = []
         for source in source_order:
-            leftovers.extend(source_groups.get(source, []))
+            source_limit = max_per_source
+            if per_source_limits and source in per_source_limits:
+                source_limit = per_source_limits[source]
+            remaining_capacity = max(0, source_limit - counts.get(source, 0))
+            if source_limit < 0:
+                remaining_capacity = len(source_groups.get(source, []))
+            if remaining_capacity <= 0:
+                continue
+            leftovers.extend(source_groups.get(source, [])[:remaining_capacity])
         result.extend(leftovers[: max(0, k - len(result))])
 
     return result
