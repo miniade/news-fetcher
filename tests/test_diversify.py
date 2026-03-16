@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from news_fetcher.diversify import DiversitySelector
+from news_fetcher.diversify import DiversitySelector, round_robin_select
 from news_fetcher.models import Article
 
 
@@ -97,6 +97,47 @@ class TestDiversify:
         diversified = selector.select(
             articles,
             4,
+            per_source_limits={"Weak Feed": 1},
+        )
+
+        assert [article.source for article in diversified] == [
+            "Weak Feed",
+            "Strong Feed",
+            "Strong Feed",
+            "Strong Feed",
+        ]
+
+    def test_round_robin_allows_unlimited_default_when_only_overrides_are_provided(self):
+        now = datetime(2026, 3, 12)
+        articles = [
+            Article(
+                id=f"weak-{i}",
+                title=f"Weak {i}",
+                content="Weak article",
+                url=f"https://example.com/weak-{i}",
+                source="Weak Feed",
+                published_at=now,
+                score=1.0 - i * 0.01,
+            )
+            for i in range(3)
+        ] + [
+            Article(
+                id=f"strong-{i}",
+                title=f"Strong {i}",
+                content="Strong article",
+                url=f"https://example.com/strong-{i}",
+                source="Strong Feed",
+                published_at=now,
+                score=0.9 - i * 0.01,
+            )
+            for i in range(3)
+        ]
+
+        diversified = round_robin_select(
+            candidates=articles,
+            selected=[],
+            k=4,
+            max_per_source=None,
             per_source_limits={"Weak Feed": 1},
         )
 

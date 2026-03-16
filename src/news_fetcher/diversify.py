@@ -43,12 +43,11 @@ class DiversitySelector:
             (max_per_source is not None and max_per_source > 0)
             or per_source_limits is not None
         ):
-            effective_max = max_per_source if max_per_source is not None and max_per_source > 0 else k
             return round_robin_select(
                 candidates=articles,
                 selected=selected,
                 k=k,
-                max_per_source=effective_max,
+                max_per_source=max_per_source if max_per_source is not None and max_per_source > 0 else None,
                 per_source_limits=per_source_limits,
             )
 
@@ -163,7 +162,7 @@ def round_robin_select(
     candidates: List[Article],
     selected: List[Article],
     k: int,
-    max_per_source: int,
+    max_per_source: Optional[int] = None,
     per_source_limits: Optional[Dict[str, int]] = None,
 ) -> List[Article]:
     """Select articles in score-preserving source rounds with an optional cap.
@@ -198,7 +197,7 @@ def round_robin_select(
         for source in source_order:
             if len(result) >= k:
                 break
-            source_limit = max_per_source
+            source_limit = max_per_source if max_per_source is not None else -1
             if per_source_limits and source in per_source_limits:
                 source_limit = per_source_limits[source]
             if source_limit >= 0 and counts.get(source, 0) >= source_limit:
@@ -217,7 +216,7 @@ def round_robin_select(
     if len(result) < k:
         leftovers: List[Article] = []
         for source in source_order:
-            source_limit = max_per_source
+            source_limit = max_per_source if max_per_source is not None else -1
             if per_source_limits and source in per_source_limits:
                 source_limit = per_source_limits[source]
             remaining_capacity = max(0, source_limit - counts.get(source, 0))

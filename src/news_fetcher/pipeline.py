@@ -7,7 +7,7 @@ articles to outputting the final results.
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from .cluster import ArticleClusterer
@@ -262,7 +262,7 @@ class NewsPipeline:
     def _filter_by_recency_window(
         self, articles: List[Article], source_by_name: Dict[str, Source]
     ) -> List[Article]:
-        now = datetime.now()
+        now = self._normalize_datetime_utc(datetime.now(timezone.utc))
         filtered: List[Article] = []
         for article in articles:
             source = source_by_name.get(article.source)
@@ -271,11 +271,17 @@ class NewsPipeline:
                 filtered.append(article)
                 continue
 
-            age_hours = max((now - article.published_at).total_seconds() / 3600.0, 0.0)
+            published_at = self._normalize_datetime_utc(article.published_at)
+            age_hours = max((now - published_at).total_seconds() / 3600.0, 0.0)
             if age_hours <= recency_window_hours:
                 filtered.append(article)
 
         return filtered
+
+    def _normalize_datetime_utc(self, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
 
     def _build_cluster_support_map(self, articles: List[Article]) -> Dict[str, int]:
         support: Dict[str, set] = {}
@@ -377,8 +383,6 @@ class NewsPipeline:
             if source_limit is None:
                 continue
 
-            if max_per_source is not None and max_per_source > 0:
-                source_limit = min(source_limit, max_per_source)
             source_limits[source.name] = source_limit
 
         return source_limits
