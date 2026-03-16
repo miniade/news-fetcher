@@ -146,6 +146,53 @@ class TestFetch:
         assert results[0].title == "Picked Story Headline"
         assert results[0].source == "HTML Source"
 
+    def test_fetch_all_preserves_source_acquisition_metadata(self, mock_http_responses):
+        test_url = "https://example.com/html-frontpage"
+        html = """
+<html>
+  <body>
+    <main>
+      <div class="story-card">
+        <h2><a href="/picked-story">Picked Story Headline</a></h2>
+        <p>Selected by CSS selector.</p>
+      </div>
+      <div class="story-card">
+        <h2><a href="/second-story">Second Story Headline</a></h2>
+        <p>Second card.</p>
+      </div>
+    </main>
+  </body>
+</html>
+"""
+        mock_http_responses.add(
+            responses.GET,
+            test_url,
+            body=html,
+            status=200,
+            content_type="text/html",
+        )
+
+        results = fetch_all(
+            [
+                Source(
+                    name="Editorial Source",
+                    url=test_url,
+                    type="html",
+                    selector=".story-card",
+                    source_type="curated_editorial",
+                    candidate_strategy="curated",
+                )
+            ]
+        )
+
+        assert len(results) == 2
+        assert results[0].candidate_strategy == "curated"
+        assert results[0].source_type == "curated_editorial"
+        assert results[0].source_rank_position == 1
+        assert results[0].source_section == ".story-card"
+        assert results[0].source_curated_flag is True
+        assert results[0].source_official_flag is False
+
     def test_parse_invalid_rss_feed(self, mock_http_responses):
         test_url = "https://example.com/invalid.rss"
         invalid_xml = "<invalid><rss>content</rss></invalid>"

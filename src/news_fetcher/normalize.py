@@ -6,6 +6,7 @@ cleaning, URL validation, date extraction, and deduplication.
 """
 
 import re
+from dataclasses import replace
 from typing import List, Optional, Dict
 from datetime import datetime
 import html
@@ -29,19 +30,11 @@ def normalize_article(article: Article) -> Article:
         ProcessingError: If normalization fails
     """
     try:
-        normalized_article = Article(
-            id=article.id,
+        normalized_article = replace(
+            article,
             title=normalize_title(article.title),
             content=normalize_text(article.content),
             url=normalize_url(article.url),
-            source=article.source,
-            published_at=article.published_at,
-            fetched_at=article.fetched_at,
-            author=article.author,
-            summary=article.summary,
-            embeddings=article.embeddings,
-            cluster_id=article.cluster_id,
-            score=article.score
         )
         return normalized_article
     except Exception as e:

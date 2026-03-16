@@ -22,6 +22,22 @@ def _article_to_dict(article: Article, include_embeddings: bool = False) -> Dict
         "summary": article.summary,
         "cluster_id": article.cluster_id,
         "score": article.score,
+        "candidate_strategy": article.candidate_strategy,
+        "source_type": article.source_type,
+        "source_rank_position": article.source_rank_position,
+        "source_section": article.source_section,
+        "source_engagement_score": article.source_engagement_score,
+        "source_comment_count": article.source_comment_count,
+        "source_view_count": article.source_view_count,
+        "source_like_count": article.source_like_count,
+        "source_curated_flag": article.source_curated_flag,
+        "source_official_flag": article.source_official_flag,
+        "source_frontpage_timestamp": (
+            article.source_frontpage_timestamp.isoformat()
+            if article.source_frontpage_timestamp
+            else None
+        ),
+        "acquisition_confidence": article.acquisition_confidence,
     }
     if include_embeddings and article.embeddings is not None:
         data["embeddings"] = article.embeddings
