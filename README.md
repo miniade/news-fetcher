@@ -85,6 +85,9 @@ weights:
 # Basic fetch
 news-fetcher --config config.yaml --limit 20 run
 
+# Write JSON to stdout
+news-fetcher --config config.yaml --format json --limit 10 run > result.json
+
 # Output as Markdown
 news-fetcher --config config.yaml --format markdown --output news.md run
 
@@ -93,6 +96,8 @@ news-fetcher --config config.yaml --limit 30 run
 ```
 
 > Important: global options such as `--config`, `--limit`, `--format`, `--since`, and `--min-score` must appear **before** `run`.
+>
+> Output behavior: a plain `news-fetcher ... run` prints the human-readable summary to stdout. If you explicitly pass `--format` without `--output`, the selected format is written to stdout instead, which makes shell redirection like `> result.json` work as expected.
 
 ### 2.1 Install and use via ClawHub skill
 
@@ -160,7 +165,7 @@ news-fetcher test [OPTIONS]
 | `--diversity` | MMR lambda parameter (0-1) | 0.6 |
 | `--min-score` | Minimum score threshold | 0.3 |
 | `--output` | Output file path | - |
-| `--format` | Output format (json/markdown/csv/rss) | json |
+| `--format` | Explicit output format for `--output` or stdout redirection (json/markdown/csv/rss) | json |
 | `--fixtures` | Use local fixture files | - |
 | `--verbose` | Enable verbose output | - |
 

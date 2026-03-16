@@ -239,6 +239,11 @@ def run(ctx):
             )
             return
 
+        if option_ctx.get_parameter_source("output_format") != ParameterSource.DEFAULT:
+            formatter = OutputFormatter(ctx.obj["format"])
+            click.echo(formatter.format(result.articles, clusters=result.clusters))
+            return
+
         click.echo("\nResults:")
         click.echo(f"Total articles: {len(result.articles)}")
         click.echo(f"Total clusters: {len(result.clusters)}")

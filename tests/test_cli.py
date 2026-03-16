@@ -239,3 +239,48 @@ thresholds:
         parsed = json.loads(output_path.read_text(encoding="utf-8"))
         assert parsed["articles"][0]["title"] == "saved article"
         assert "Wrote 1 articles" in result.output
+
+    def test_cli_run_with_explicit_json_format_writes_json_to_stdout(self, monkeypatch):
+        class FakePipeline:
+            def __init__(self):
+                self.diversity_selector = type("Selector", (), {"lambda_param": None})()
+                self.config = type("Config", (), {"thresholds": {"min_score": 0.3}})()
+
+            def run(self, sources=None, since=None, limit=None):
+                return _result_with_article("stdout article")
+
+        monkeypatch.setattr(
+            "news_fetcher.cli.create_default_pipeline",
+            lambda *_args, **_kwargs: FakePipeline(),
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["--format", "json", "run"])
+
+        assert result.exit_code == 0
+        assert "Running news pipeline..." in result.output
+        assert "Results:" not in result.output
+        parsed = json.loads(result.output.split("\n", 1)[1])
+        assert parsed["articles"][0]["title"] == "stdout article"
+
+    def test_cli_run_without_explicit_format_keeps_human_summary(self, monkeypatch):
+        class FakePipeline:
+            def __init__(self):
+                self.diversity_selector = type("Selector", (), {"lambda_param": None})()
+                self.config = type("Config", (), {"thresholds": {"min_score": 0.3}})()
+
+            def run(self, sources=None, since=None, limit=None):
+                return _result_with_article("summary article")
+
+        monkeypatch.setattr(
+            "news_fetcher.cli.create_default_pipeline",
+            lambda *_args, **_kwargs: FakePipeline(),
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["run"])
+
+        assert result.exit_code == 0
+        assert "Results:" in result.output
+        assert "summary article" in result.output
+        assert '"articles"' not in result.output
