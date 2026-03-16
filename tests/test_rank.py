@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from news_fetcher.models import Article, Config, Source
+from news_fetcher.models import Article, Cluster, Config, Source
 from news_fetcher.rank import ArticleRanker
 
 
@@ -95,3 +95,106 @@ class TestRank:
 
         ranked = ranker.rank(articles)
         assert ranked[0].id == "new"
+
+    def test_rank_uses_acquisition_metadata_and_corroboration_to_raise_event(self):
+        config = Config(
+            sources=[
+                Source(name="Official Blog", url="https://official.example", weight=1.0),
+                Source(name="Independent Wire", url="https://wire.example", weight=1.0),
+                Source(name="Fast Feed", url="https://fast.example", weight=1.0),
+            ],
+            thresholds={
+                "similarity": 0.8,
+                "min_score": 0.0,
+                "cluster_size": 1,
+                "max_per_source": 0,
+                "corroboration_min_sources": 2,
+            },
+        )
+        ranker = ArticleRanker(config)
+        now = datetime.now()
+
+        official_frontpage = Article(
+            id="official-frontpage",
+            title="Company confirms launch date",
+            content="Detailed launch coverage",
+            url="https://official.example/launch",
+            source="Official Blog",
+            published_at=now - timedelta(hours=3),
+            score=5.0,
+            cluster_id="launch-event",
+            source_official_flag=True,
+            source_rank_position=1,
+            acquisition_confidence=0.9,
+        )
+        corroborating_report = Article(
+            id="wire-match",
+            title="Independent report confirms launch date",
+            content="Independent corroboration",
+            url="https://wire.example/launch",
+            source="Independent Wire",
+            published_at=now - timedelta(hours=4),
+            score=4.0,
+            cluster_id="launch-event",
+        )
+        fresher_single_source = Article(
+            id="fresh-single-source",
+            title="Fresh single-source rumor",
+            content="Rumor coverage only",
+            url="https://fast.example/rumor",
+            source="Fast Feed",
+            published_at=now,
+            score=6.0,
+            cluster_id="rumor-event",
+        )
+
+        ranked = ranker.rank(
+            [fresher_single_source, official_frontpage, corroborating_report],
+            clusters=[
+                Cluster(id="launch-event", articles=[official_frontpage, corroborating_report]),
+                Cluster(id="rumor-event", articles=[fresher_single_source]),
+            ],
+        )
+
+        assert [article.id for article in ranked] == [
+            "official-frontpage",
+            "fresh-single-source",
+            "wire-match",
+        ]
+
+    def test_rank_uses_engagement_proxy_when_available(self):
+        config = Config(
+            sources=[Source(name="Community", url="https://community.example", weight=1.0)]
+        )
+        ranker = ArticleRanker(config)
+        now = datetime.now()
+        articles = [
+            Article(
+                id="high-engagement",
+                title="High engagement",
+                content="same content",
+                url="https://community.example/high",
+                source="Community",
+                published_at=now,
+                source_rank_position=5,
+                source_comment_count=120,
+                source_like_count=80,
+                score=5.0,
+            ),
+            Article(
+                id="low-engagement",
+                title="Low engagement",
+                content="same content",
+                url="https://community.example/low",
+                source="Community",
+                published_at=now,
+                source_rank_position=5,
+                source_comment_count=2,
+                source_like_count=1,
+                score=5.0,
+            ),
+        ]
+
+        ranked = ranker.rank(articles)
+
+        assert ranked[0].id == "high-engagement"
