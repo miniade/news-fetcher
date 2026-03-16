@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "news-fetcher"
-version = "0.1.5"
+version = "0.1.6"
 authors = [
   { name = "News Fetcher Team", email = "contact@newsfetcher.example" }
 ]

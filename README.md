@@ -105,14 +105,14 @@ news-fetcher --config config.yaml --limit 30 run
 clawhub install news-fetcher
 python3 -m venv .venv
 . .venv/bin/activate
-pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.5"
+pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.6"
 news-fetcher version
 news-fetcher config example > config.yaml
 news-fetcher config validate config.yaml
 news-fetcher --config config.yaml --limit 10 run
 ```
 
-This path is the most reliable way to reproduce the exact `v0.1.5` release, even if PyPI has not been updated yet.
+This path is the most reliable way to reproduce the exact `v0.1.6` release, even if PyPI has not been updated yet.
 
 ### 3. Python API
 
