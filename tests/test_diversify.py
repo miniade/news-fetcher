@@ -66,3 +66,43 @@ class TestDiversify:
             "TechCrunch",
             "BBC News",
         ]
+
+    def test_diversify_honors_per_source_limits_without_global_cap(self):
+        now = datetime(2026, 3, 12)
+        articles = [
+            Article(
+                id=f"weak-{i}",
+                title=f"Weak {i}",
+                content="Weak article",
+                url=f"https://example.com/weak-{i}",
+                source="Weak Feed",
+                published_at=now,
+                score=1.0 - i * 0.01,
+            )
+            for i in range(3)
+        ] + [
+            Article(
+                id=f"strong-{i}",
+                title=f"Strong {i}",
+                content="Strong article",
+                url=f"https://example.com/strong-{i}",
+                source="Strong Feed",
+                published_at=now,
+                score=0.9 - i * 0.01,
+            )
+            for i in range(3)
+        ]
+
+        selector = DiversitySelector()
+        diversified = selector.select(
+            articles,
+            4,
+            per_source_limits={"Weak Feed": 1},
+        )
+
+        assert [article.source for article in diversified] == [
+            "Weak Feed",
+            "Strong Feed",
+            "Strong Feed",
+            "Strong Feed",
+        ]

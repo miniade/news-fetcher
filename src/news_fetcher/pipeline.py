@@ -80,6 +80,7 @@ class NewsPipeline:
             articles, clusters = self._cluster(articles)
             articles = self._rank(articles, clusters)
             articles, clusters = self._apply_min_score(articles, clusters)
+            articles, clusters = self._apply_source_strategy_controls(articles, clusters)
             articles = self._diversify(articles, limit)
             articles = self._summarize(articles)
 
@@ -132,6 +133,7 @@ class NewsPipeline:
             articles, clusters = self._cluster(articles)
             articles = self._rank(articles, clusters)
             articles, clusters = self._apply_min_score(articles, clusters)
+            articles, clusters = self._apply_source_strategy_controls(articles, clusters)
             articles = self._diversify(articles)
             articles = self._summarize(articles)
             clusters = self._prune_clusters_for_articles(clusters, articles)
@@ -231,6 +233,121 @@ class NewsPipeline:
 
         return filtered_clusters
 
+    def _apply_source_strategy_controls(
+        self, articles: List[Article], clusters: List[Cluster]
+    ) -> Tuple[List[Article], List[Cluster]]:
+        if not articles:
+            return [], []
+
+        source_by_name = {source.name: source for source in self.config.sources}
+        filtered_articles = self._filter_by_recency_window(articles, source_by_name)
+        if not filtered_articles:
+            logger.info("No articles remained after recency-window filtering")
+            return [], []
+
+        cluster_support = self._build_cluster_support_map(filtered_articles)
+        filtered_articles = self._filter_corroboration_only_articles(
+            filtered_articles,
+            source_by_name,
+            cluster_support,
+        )
+        if not filtered_articles:
+            logger.info("No articles remained after corroboration-only filtering")
+            return [], []
+
+        filtered_articles = self._apply_source_score_multipliers(filtered_articles, source_by_name)
+        filtered_articles.sort(key=lambda article: article.score, reverse=True)
+        return filtered_articles, self._prune_clusters_for_articles(clusters, filtered_articles)
+
+    def _filter_by_recency_window(
+        self, articles: List[Article], source_by_name: Dict[str, Source]
+    ) -> List[Article]:
+        now = datetime.now()
+        filtered: List[Article] = []
+        for article in articles:
+            source = source_by_name.get(article.source)
+            recency_window_hours = self._get_source_recency_window_hours(source)
+            if recency_window_hours is None:
+                filtered.append(article)
+                continue
+
+            age_hours = max((now - article.published_at).total_seconds() / 3600.0, 0.0)
+            if age_hours <= recency_window_hours:
+                filtered.append(article)
+
+        return filtered
+
+    def _build_cluster_support_map(self, articles: List[Article]) -> Dict[str, int]:
+        support: Dict[str, set] = {}
+        for article in articles:
+            cluster_key = article.cluster_id or article.id
+            support.setdefault(cluster_key, set()).add(article.source)
+        return {cluster_key: len(sources) for cluster_key, sources in support.items()}
+
+    def _filter_corroboration_only_articles(
+        self,
+        articles: List[Article],
+        source_by_name: Dict[str, Source],
+        cluster_support: Dict[str, int],
+    ) -> List[Article]:
+        min_sources = int(self.config.thresholds.get("corroboration_min_sources", 2) or 2)
+        filtered: List[Article] = []
+        for article in articles:
+            source = source_by_name.get(article.source)
+            if source is None or source.candidate_strategy != "corroboration_only":
+                filtered.append(article)
+                continue
+
+            cluster_key = article.cluster_id or article.id
+            if cluster_support.get(cluster_key, 1) >= min_sources:
+                filtered.append(article)
+
+        return filtered
+
+    def _apply_source_score_multipliers(
+        self, articles: List[Article], source_by_name: Dict[str, Source]
+    ) -> List[Article]:
+        default_multiplier = 0.75
+        for article in articles:
+            source = source_by_name.get(article.source)
+            if not self._is_weak_source(source):
+                continue
+
+            multiplier = default_multiplier
+            if source is not None and source.weak_source_weight_multiplier is not None:
+                multiplier = source.weak_source_weight_multiplier
+            article.score *= multiplier
+
+        return articles
+
+    def _is_weak_source(self, source: Optional[Source]) -> bool:
+        if source is None:
+            return False
+        if source.weak_source is not None:
+            return source.weak_source
+        return source.candidate_strategy in {"latest", "corroboration_only"} and source.source_type in {
+            "plain_rss",
+            "generic_html",
+            "platform_feed",
+            "publisher_section",
+        }
+
+    def _get_source_recency_window_hours(self, source: Optional[Source]) -> Optional[float]:
+        if source is not None and source.recency_window_hours is not None:
+            if source.recency_window_hours <= 0:
+                return None
+            return source.recency_window_hours
+
+        if not self._is_weak_source(source):
+            return None
+
+        default_window = float(
+            self.config.thresholds.get("weak_source_recency_window_hours", 0.0) or 0.0
+        )
+        if default_window <= 0:
+            return None
+        return default_window
+
     def _diversify(
         self, articles: List[Article], limit: Optional[int] = None
     ) -> List[Article]:
@@ -239,11 +356,32 @@ class NewsPipeline:
         max_per_source = None
         if raw_max_per_source is not None and int(raw_max_per_source) > 0:
             max_per_source = int(raw_max_per_source)
+        weak_source_max = int(self.config.thresholds.get("weak_source_max_per_source", 1) or 0)
+        source_limits = self._build_source_limits(max_per_source, weak_source_max)
         return self.diversity_selector.select(
             articles,
             k=k,
             max_per_source=max_per_source,
+            per_source_limits=source_limits if source_limits else None,
         )
+
+    def _build_source_limits(
+        self, max_per_source: Optional[int], weak_source_max: int
+    ) -> Dict[str, int]:
+        source_limits: Dict[str, int] = {}
+        for source in self.config.sources:
+            source_limit = source.contribution_limit
+            if source_limit is None and self._is_weak_source(source) and weak_source_max > 0:
+                source_limit = weak_source_max
+
+            if source_limit is None:
+                continue
+
+            if max_per_source is not None and max_per_source > 0:
+                source_limit = min(source_limit, max_per_source)
+            source_limits[source.name] = source_limit
+
+        return source_limits
 
     def _summarize(self, articles: List[Article]) -> List[Article]:
         for article in articles:

@@ -38,7 +38,36 @@ class TestConfig:
         assert config.sources[1].source_type == "generic_html"
         assert config.sources[1].candidate_strategy == "frontpage"
         assert config.thresholds["max_per_source"] == 3
+        assert config.thresholds["weak_source_max_per_source"] == 1
+        assert config.thresholds["corroboration_min_sources"] == 2
         assert config.thresholds["min_score"] == 0.3
+
+    def test_validate_config_parses_source_acquisition_controls(self):
+        config = validate_config(
+            {
+                "sources": [
+                    {
+                        "name": "Example",
+                        "url": "https://example.com/feed.xml",
+                        "type": "rss",
+                        "source_type": "plain_rss",
+                        "candidate_strategy": "latest",
+                        "acquisition": {
+                            "weak_source": True,
+                            "weak_source_weight_multiplier": 0.4,
+                            "contribution_limit": 1,
+                            "recency_window_hours": 12,
+                        },
+                    }
+                ]
+            }
+        )
+
+        source = config.sources[0]
+        assert source.weak_source is True
+        assert source.weak_source_weight_multiplier == 0.4
+        assert source.contribution_limit == 1
+        assert source.recency_window_hours == 12.0
 
     def test_load_config_from_path(self, tmp_path):
         config_file = tmp_path / "config.yaml"

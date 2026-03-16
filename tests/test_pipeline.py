@@ -124,3 +124,150 @@ class TestPipeline:
         assert article.source_section == ".lead-story"
         assert article.source_curated_flag is False
         assert article.source_official_flag is False
+
+    def test_pipeline_weak_latest_source_does_not_flood_final_output(self, monkeypatch):
+        config = Config(
+            sources=[
+                Source(
+                    name="Weak Latest Feed",
+                    url="https://example.com/weak.xml",
+                    type="rss",
+                    source_type="plain_rss",
+                    candidate_strategy="latest",
+                ),
+                Source(
+                    name="Strong Editorial",
+                    url="https://example.com/strong",
+                    type="html",
+                    source_type="curated_editorial",
+                    candidate_strategy="curated",
+                ),
+            ],
+            thresholds={
+                "similarity": 0.8,
+                "min_score": 0.0,
+                "cluster_size": 1,
+                "max_per_source": 0,
+                "weak_source_max_per_source": 1,
+                "weak_source_recency_window_hours": 0.0,
+                "corroboration_min_sources": 2,
+            },
+        )
+        pipeline = NewsPipeline(config)
+        now = datetime(2026, 3, 12)
+        weak_articles = [
+            Article(
+                id=f"weak-{i}",
+                title=f"Weak {i}",
+                content="weak content",
+                url=f"https://example.com/weak-{i}",
+                source="Weak Latest Feed",
+                published_at=now,
+                score=1.0 - i * 0.01,
+            )
+            for i in range(4)
+        ]
+        strong_articles = [
+            Article(
+                id=f"strong-{i}",
+                title=f"Strong {i}",
+                content="strong content",
+                url=f"https://example.com/strong-{i}",
+                source="Strong Editorial",
+                published_at=now,
+                score=0.8 - i * 0.01,
+            )
+            for i in range(2)
+        ]
+        ranked_articles = weak_articles + strong_articles
+
+        monkeypatch.setattr(pipeline, "_fetch", lambda sources, since: ranked_articles)
+        monkeypatch.setattr(pipeline, "_normalize", lambda articles: articles)
+        monkeypatch.setattr(pipeline, "_deduplicate", lambda articles: articles)
+        monkeypatch.setattr(pipeline, "_cluster", lambda articles: (articles, []))
+        monkeypatch.setattr(pipeline, "_rank", lambda articles, clusters: articles)
+        monkeypatch.setattr(pipeline, "_summarize", lambda articles: articles)
+
+        result = pipeline.run(limit=3)
+
+        assert [article.source for article in result.articles] == [
+            "Strong Editorial",
+            "Weak Latest Feed",
+            "Strong Editorial",
+        ]
+
+    def test_pipeline_filters_uncorroborated_corroboration_only_articles(self, monkeypatch):
+        config = Config(
+            sources=[
+                Source(
+                    name="Weak Corroboration",
+                    url="https://example.com/weak.xml",
+                    type="rss",
+                    source_type="plain_rss",
+                    candidate_strategy="corroboration_only",
+                ),
+                Source(
+                    name="Strong Editorial",
+                    url="https://example.com/strong",
+                    type="html",
+                    source_type="curated_editorial",
+                    candidate_strategy="curated",
+                ),
+            ],
+            thresholds={
+                "similarity": 0.8,
+                "min_score": 0.0,
+                "cluster_size": 1,
+                "max_per_source": 0,
+                "weak_source_max_per_source": 1,
+                "weak_source_recency_window_hours": 0.0,
+                "corroboration_min_sources": 2,
+            },
+        )
+        pipeline = NewsPipeline(config)
+        now = datetime(2026, 3, 12)
+        corroborated_weak = Article(
+            id="weak-corroborated",
+            title="Corroborated weak article",
+            content="weak content",
+            url="https://example.com/weak-corroborated",
+            source="Weak Corroboration",
+            published_at=now,
+            score=0.9,
+            cluster_id="cluster-1",
+        )
+        uncorroborated_weak = Article(
+            id="weak-uncorroborated",
+            title="Uncorroborated weak article",
+            content="weak content",
+            url="https://example.com/weak-uncorroborated",
+            source="Weak Corroboration",
+            published_at=now,
+            score=0.85,
+            cluster_id="cluster-2",
+        )
+        strong_match = Article(
+            id="strong-match",
+            title="Strong corroborating article",
+            content="strong content",
+            url="https://example.com/strong-match",
+            source="Strong Editorial",
+            published_at=now,
+            score=0.8,
+            cluster_id="cluster-1",
+        )
+        ranked_articles = [corroborated_weak, uncorroborated_weak, strong_match]
+
+        monkeypatch.setattr(pipeline, "_fetch", lambda sources, since: ranked_articles)
+        monkeypatch.setattr(pipeline, "_normalize", lambda articles: articles)
+        monkeypatch.setattr(pipeline, "_deduplicate", lambda articles: articles)
+        monkeypatch.setattr(pipeline, "_cluster", lambda articles: (articles, []))
+        monkeypatch.setattr(pipeline, "_rank", lambda articles, clusters: articles)
+        monkeypatch.setattr(pipeline, "_summarize", lambda articles: articles)
+
+        result = pipeline.run(limit=3)
+
+        assert [article.id for article in result.articles] == [
+            "strong-match",
+            "weak-corroborated",
+        ]
