@@ -126,7 +126,7 @@ news-fetcher --config config.yaml --limit 30 run
 clawhub install news-fetcher
 python3 -m venv .venv
 . .venv/bin/activate
-pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.7"
+pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.8"
 news-fetcher version
 news-fetcher config example > config.yaml
 news-fetcher config validate config.yaml

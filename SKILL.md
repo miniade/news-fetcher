@@ -7,6 +7,8 @@ description: Install, configure, validate, and run the news-fetcher Python CLI f
 
 Use this skill to get a working `news-fetcher` installation and run it correctly.
 
+Release marker: `news-fetcher-skill-0.1.8-debug-a`
+
 ## Important
 
 - Installing the ClawHub skill does **not** install the Python package.
@@ -31,11 +33,11 @@ news-fetcher run --config config.yaml --limit 10
 python3 -m venv .venv
 . .venv/bin/activate
 pip install --upgrade pip
-pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.7"
+pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.8"
 news-fetcher version
 ```
 
-Expect `news-fetcher version 0.1.7`.
+Expect `news-fetcher version 0.1.8`.
 
 ## Minimal working config
 
@@ -155,7 +157,7 @@ sources:
 If `news-fetcher` is missing after installing the skill, install the Python package:
 
 ```bash
-pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.7"
+pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.8"
 ```
 
 If config validation fails, run:
@@ -168,7 +170,7 @@ If results are too sparse, lower `thresholds.min_score` or raise `thresholds.max
 
 ## References
 
-- Tagged source install: `pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.7"`
+- Tagged source install: `pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.8"`
 - PyPI (optional, if published): https://pypi.org/project/news-fetcher/
 - Source: https://github.com/miniade/news-fetcher
-- Version targeted by this skill: 0.1.7
+- Version targeted by this skill: 0.1.8
