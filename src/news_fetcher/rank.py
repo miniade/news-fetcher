@@ -151,7 +151,8 @@ def calculate_hotness_score(
 
 def calculate_time_decay(published_at: datetime, half_life: float = 43200.0) -> float:
     """Calculate exponential freshness decay with a 12-hour half-life by default."""
-    age_seconds = max((datetime.now() - published_at).total_seconds(), 0.0)
+    now = datetime.now(tz=published_at.tzinfo) if published_at.tzinfo else datetime.now()
+    age_seconds = max((now - published_at).total_seconds(), 0.0)
     return math.exp(-math.log(2) * age_seconds / half_life)
 
 

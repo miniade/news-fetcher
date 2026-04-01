@@ -57,6 +57,13 @@
    - CSV for data analysis
    - RSS 2.0 for syndication
 
+9. **GitHub Project Discovery**
+   - GitHub Trending candidate acquisition
+   - Repository metadata enrichment via GitHub API
+   - Rule-based project ranking with structured reasons
+   - Mapping ranked projects into normal news items
+   - Conservative pipeline cap to avoid flooding the digest
+
 ### Command-Line Interface ✓
 
 The CLI provides comprehensive control:
@@ -163,6 +170,9 @@ Current test files:
 - `test_output.py` - Output format tests
 - `test_cli.py` - CLI tests
 - `test_e2e.py` - End-to-end tests
+- `test_github_enrich.py` - GitHub enrichment tests
+- `test_github_rank.py` - GitHub ranking tests
+- `test_github_map.py` - GitHub mapping tests
 
 ## Documentation
 

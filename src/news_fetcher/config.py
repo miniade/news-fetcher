@@ -33,6 +33,7 @@ SUPPORTED_SOURCE_TYPES = {
     "publisher_section",
     "curated_editorial",
     "generic_html",
+    "github_project_discovery",
 }
 
 SUPPORTED_CANDIDATE_STRATEGIES = {
@@ -45,6 +46,7 @@ SUPPORTED_CANDIDATE_STRATEGIES = {
     "high_engagement_proxy",
     "section_frontpage",
     "corroboration_only",
+    "project_discovery",
 }
 
 SUPPORTED_SOURCE_TYPES_BY_FETCH_TYPE = {
@@ -55,6 +57,7 @@ SUPPORTED_SOURCE_TYPES_BY_FETCH_TYPE = {
         "publisher_section",
         "curated_editorial",
         "generic_html",
+        "github_project_discovery",
     },
 }
 
@@ -74,6 +77,7 @@ SUPPORTED_CANDIDATE_STRATEGIES_BY_SOURCE_TYPE = {
     # corroboration inputs, so corroboration_only is intentionally excluded.
     "curated_editorial": {"curated", "frontpage", "section_frontpage"},
     "generic_html": {"frontpage", "section_frontpage", "latest", "corroboration_only"},
+    "github_project_discovery": {"project_discovery"},
 }
 
 

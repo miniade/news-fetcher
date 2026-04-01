@@ -14,6 +14,9 @@ from .cluster import ArticleClusterer
 from .dedup import Deduplicator
 from .diversify import DiversitySelector
 from .exceptions import ProcessingError
+from .github_enrich import enrich_github_projects
+from .github_map import map_github_projects_to_news_items
+from .github_rank import rank_github_projects
 from .models import Article, Cluster, Config, Source
 from .rank import ArticleRanker, calculate_engagement_proxy
 from .summarize import ArticleSummarizer
@@ -75,6 +78,7 @@ class NewsPipeline:
                 logger.warning("No articles fetched")
                 return PipelineResult(articles=[], clusters=[])
 
+            articles = self._process_github_project_articles(articles)
             articles = self._normalize(articles)
             articles = self._deduplicate(articles)
             articles, clusters = self._cluster(articles)
@@ -164,6 +168,24 @@ class NewsPipeline:
         from .normalize import normalize_article
 
         return [normalize_article(a) for a in articles]
+
+
+    def _process_github_project_articles(self, articles: List[Article]) -> List[Article]:
+        github_articles = [article for article in articles if article.item_type == "github_project"]
+        if not github_articles:
+            return articles
+
+        normal_articles = [article for article in articles if article.item_type != "github_project"]
+        github_articles = enrich_github_projects(github_articles)
+        github_articles = rank_github_projects(github_articles)
+        github_articles = map_github_projects_to_news_items(github_articles)
+        github_articles = self._cap_github_project_articles(github_articles)
+        return normal_articles + github_articles
+
+    def _cap_github_project_articles(self, articles: List[Article]) -> List[Article]:
+        if not articles:
+            return []
+        return articles[:1]
 
     def _deduplicate(self, articles: List[Article]) -> List[Article]:
         seen_hashes = {}
@@ -412,11 +434,34 @@ class NewsPipeline:
         cluster_support = self._build_cluster_support_map(candidate_pool)
 
         for article in selected_articles:
-            article.selection_reasons = self._build_selection_reasons(article, cluster_support)
-            article.selection_adjustments = self._build_selection_adjustments(
+            built_reasons = self._build_selection_reasons(article, cluster_support)
+            built_adjustments = self._build_selection_adjustments(
                 article,
                 source_by_name.get(article.source),
             )
+            article.selection_reasons = self._merge_reason_entries(
+                article.selection_reasons,
+                built_reasons,
+            )
+            article.selection_adjustments = self._merge_reason_entries(
+                article.selection_adjustments,
+                built_adjustments,
+            )
+
+    def _merge_reason_entries(
+        self,
+        existing: List[Dict[str, Any]],
+        generated: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        merged: List[Dict[str, Any]] = []
+        seen = set()
+        for entry in (existing or []) + (generated or []):
+            key = tuple(sorted(entry.items()))
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(entry)
+        return merged
 
     def _build_selection_reasons(
         self,

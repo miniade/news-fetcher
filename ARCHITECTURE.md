@@ -28,6 +28,8 @@ News Fetcher is a Python-based news aggregation and clustering tool that fetches
 
 **Purpose**: Fetch articles from various news sources (RSS, HTML).
 
+GitHub project discovery sources are routed through a specialized fetcher (`github_fetch.py`) that parses the GitHub Trending surface into `github_project` candidates before they re-enter the main pipeline.
+
 **Key Components**:
 - `fetch_rss()`: Parse RSS/Atom feeds using feedparser
 - `fetch_html()`: Extract articles from HTML pages using BeautifulSoup
@@ -527,3 +529,16 @@ Potential improvements for future versions:
 4. **Graph Analysis**: Knowledge graphs, entity relationships
 5. **Distributed Processing**: Spark/Dask for large-scale processing
 6. **Advanced NLP**: Named entity recognition, sentiment analysis, topic modeling
+
+
+### GitHub Project Discovery Sub-pipeline
+
+GitHub project discovery adds a specialized side-path inside the main pipeline:
+
+1. `github_fetch.py` acquires candidate repositories from GitHub Trending
+2. `github_enrich.py` enriches candidates with repository metadata and derived activity/quality signals
+3. `github_rank.py` assigns a GitHub-specific discovery score and structured reasons
+4. `github_map.py` maps ranked candidates into normal news-style `Article` objects
+5. `pipeline.py` applies a conservative cap before merging GitHub project items back into the main article flow
+
+This keeps GitHub-specific logic modular while preserving the existing `Article`-based output contract.

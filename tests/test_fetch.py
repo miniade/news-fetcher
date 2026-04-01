@@ -6,6 +6,7 @@ import pytest
 import responses
 
 from news_fetcher.fetch import fetch_all, fetch_html, fetch_rss
+from news_fetcher.github_fetch import fetch_github_trending
 from news_fetcher.normalize import normalize_article
 from news_fetcher.models import Source
 
@@ -328,3 +329,64 @@ class TestFetch:
 
         with pytest.raises(Exception):
             fetch_rss(test_url, timeout=0.001)
+
+
+    def test_fetch_github_trending_fixture_extracts_project_candidates(self, mock_http_responses):
+        test_url = "https://github.com/trending"
+        fixture_path = Path(__file__).parent / "fixtures" / "github_trending_sample.html"
+        html = fixture_path.read_text(encoding="utf-8")
+        mock_http_responses.add(
+            responses.GET,
+            test_url,
+            body=html,
+            status=200,
+            content_type="text/html",
+        )
+
+        results = fetch_github_trending(
+            test_url,
+            source_config=Source(
+                name="GitHub Trending",
+                url=test_url,
+                type="html",
+                source_type="github_project_discovery",
+                candidate_strategy="project_discovery",
+            ),
+        )
+
+        assert results
+        assert all(article.item_type == "github_project" for article in results)
+        assert all(article.source_type == "github_project_discovery" for article in results)
+        assert all(article.candidate_strategy == "project_discovery" for article in results)
+        assert results[0].source_rank_position == 1
+        assert results[0].item_metadata["repo_full_name"]
+        assert results[0].item_metadata["repo_url"].startswith("https://github.com/")
+        assert results[0].item_metadata["source_surface"] == "trending"
+
+    def test_fetch_all_routes_github_project_discovery_sources(self, mock_http_responses):
+        test_url = "https://github.com/trending"
+        fixture_path = Path(__file__).parent / "fixtures" / "github_trending_sample.html"
+        html = fixture_path.read_text(encoding="utf-8")
+        mock_http_responses.add(
+            responses.GET,
+            test_url,
+            body=html,
+            status=200,
+            content_type="text/html",
+        )
+
+        results = fetch_all(
+            [
+                Source(
+                    name="GitHub Trending",
+                    url=test_url,
+                    type="html",
+                    source_type="github_project_discovery",
+                    candidate_strategy="project_discovery",
+                )
+            ]
+        )
+
+        assert results
+        assert results[0].item_type == "github_project"
+        assert results[0].source == "GitHub Trending"

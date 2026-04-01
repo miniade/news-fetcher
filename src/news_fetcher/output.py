@@ -40,6 +40,8 @@ def _article_to_dict(article: Article, include_embeddings: bool = False) -> Dict
             else None
         ),
         "acquisition_confidence": article.acquisition_confidence,
+        "item_type": article.item_type,
+        "item_metadata": article.item_metadata,
     }
     if include_embeddings and article.embeddings is not None:
         data["embeddings"] = article.embeddings

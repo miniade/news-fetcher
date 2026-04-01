@@ -499,3 +499,157 @@ class TestPipeline:
         assert result.articles[0].selection_adjustments == [
             {"kind": "weak_source_downgrade", "multiplier": 0.5}
         ]
+
+
+    def test_pipeline_processes_github_project_articles_with_cap(self, monkeypatch):
+        config = Config(
+            sources=[
+                Source(
+                    name="GitHub Trending",
+                    url="https://github.com/trending",
+                    type="html",
+                    source_type="github_project_discovery",
+                    candidate_strategy="project_discovery",
+                ),
+                Source(name="Example", url="https://example.com/feed.xml"),
+            ],
+            thresholds={
+                "similarity": 0.8,
+                "min_score": 0.0,
+                "cluster_size": 1,
+                "max_per_source": 0,
+            },
+        )
+        pipeline = NewsPipeline(config)
+        now = datetime(2026, 3, 12, tzinfo=timezone.utc)
+
+        github_one = Article(
+            id="gh-1",
+            title="owner/repo-one",
+            content="Repo one",
+            url="https://github.com/owner/repo-one",
+            source="GitHub Trending",
+            published_at=now,
+            item_type="github_project",
+            item_metadata={"repo_full_name": "owner/repo-one", "name": "repo-one", "stars_today": 100},
+        )
+        github_two = Article(
+            id="gh-2",
+            title="owner/repo-two",
+            content="Repo two",
+            url="https://github.com/owner/repo-two",
+            source="GitHub Trending",
+            published_at=now,
+            item_type="github_project",
+            item_metadata={"repo_full_name": "owner/repo-two", "name": "repo-two", "stars_today": 80},
+        )
+        normal_article = Article(
+            id="plain-1",
+            title="Regular news item",
+            content="content",
+            url="https://example.com/story",
+            source="Example",
+            published_at=now,
+            score=0.5,
+        )
+
+        def fake_enrich(articles, session=None, timeout=30):
+            for article in articles:
+                article.item_metadata.update(
+                    {
+                        "description": f"Description for {article.item_metadata['name']}",
+                        "topics": ["ai"],
+                        "activity_signals": {
+                            "has_recent_push": True,
+                            "updated_recently": True,
+                            "recent_push_age_hours": 6.0,
+                            "forks_count": 20,
+                            "watchers_count": 10,
+                        },
+                        "quality_signals": {
+                            "quality_signal_count": 6,
+                            "is_not_fork": True,
+                            "has_description": True,
+                            "has_topics": True,
+                            "not_archived": True,
+                            "not_disabled": True,
+                        },
+                    }
+                )
+            return articles
+
+        monkeypatch.setattr(pipeline, "_fetch", lambda sources, since: [normal_article, github_one, github_two])
+        monkeypatch.setattr(pipeline_module, "enrich_github_projects", fake_enrich)
+        monkeypatch.setattr(pipeline, "_normalize", lambda articles: articles)
+        monkeypatch.setattr(pipeline, "_deduplicate", lambda articles: articles)
+        monkeypatch.setattr(pipeline, "_cluster", lambda articles: (articles, []))
+        monkeypatch.setattr(pipeline, "_rank", lambda articles, clusters: articles)
+        monkeypatch.setattr(pipeline, "_diversify", lambda articles, limit=None: articles)
+        monkeypatch.setattr(pipeline, "_summarize", lambda articles: articles)
+
+        result = pipeline.run(limit=10)
+
+        github_results = [article for article in result.articles if article.item_type == "github_project"]
+        assert len(github_results) == 1
+        assert github_results[0].title.startswith("GitHub 项目 ")
+        assert "今天 star 增长明显" in (github_results[0].summary or "")
+        assert any(article.title == "Regular news item" for article in result.articles)
+
+
+    def test_pipeline_preserves_existing_github_selection_reasons(self, monkeypatch):
+        config = Config(
+            sources=[
+                Source(
+                    name="GitHub Trending",
+                    url="https://github.com/trending",
+                    type="html",
+                    source_type="github_project_discovery",
+                    candidate_strategy="project_discovery",
+                )
+            ],
+            thresholds={
+                "similarity": 0.8,
+                "min_score": 0.0,
+                "cluster_size": 1,
+                "max_per_source": 0,
+            },
+        )
+        pipeline = NewsPipeline(config)
+        article = Article(
+            id="news-gh-1",
+            title="GitHub 项目 demo 今日快速走热",
+            content="desc",
+            url="https://github.com/example/demo",
+            source="GitHub Trending",
+            published_at=datetime(2026, 3, 12, tzinfo=timezone.utc),
+            score=0.9,
+            item_type="github_project",
+            source_rank_position=5,
+            selection_reasons=[
+                {"kind": "github_stars_today", "stars_today": 120},
+                {"kind": "recent_repo_push", "hours_since_push": 3.0},
+            ],
+            selection_adjustments=[
+                {"kind": "thin_metadata_penalty", "multiplier": 0.9}
+            ],
+        )
+
+        monkeypatch.setattr(pipeline, "_fetch", lambda sources, since: [article])
+        monkeypatch.setattr(pipeline, "_normalize", lambda articles: articles)
+        monkeypatch.setattr(pipeline, "_deduplicate", lambda articles: articles)
+        monkeypatch.setattr(pipeline, "_cluster", lambda articles: (articles, []))
+        monkeypatch.setattr(pipeline, "_rank", lambda articles, clusters: articles)
+        monkeypatch.setattr(pipeline, "_diversify", lambda articles, limit=None: articles)
+        monkeypatch.setattr(pipeline, "_summarize", lambda articles: articles)
+        monkeypatch.setattr(pipeline, "_process_github_project_articles", lambda articles: articles)
+
+        result = pipeline.run(limit=10)
+        reasons = result.articles[0].selection_reasons
+        adjustments = result.articles[0].selection_adjustments
+
+        assert {reason["kind"] for reason in reasons} >= {
+            "github_stars_today",
+            "recent_repo_push",
+            "frontpage_rank",
+        }
+        assert adjustments == [{"kind": "thin_metadata_penalty", "multiplier": 0.9}]

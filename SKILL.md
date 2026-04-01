@@ -1,6 +1,6 @@
 ---
 name: news-fetcher
-description: Install, configure, validate, and run the news-fetcher Python CLI for aggregating RSS/Atom and HTML news sources with deduplication, clustering, ranking, source diversity, and summaries. Use when an agent needs to fetch news, create or validate a config, troubleshoot news-fetcher installation, or produce JSON/Markdown/CSV/RSS output from multiple sources.
+description: Install, configure, validate, and run the news-fetcher Python CLI for aggregating RSS/Atom and HTML news sources with deduplication, clustering, ranking, source diversity, summaries, and GitHub project discovery. Use when an agent needs to fetch news, create or validate a config, troubleshoot installation, discover GitHub projects worth attention today, or produce JSON/Markdown/CSV/RSS output from multiple sources.
 ---
 
 # News Fetcher
@@ -31,11 +31,11 @@ news-fetcher run --config config.yaml --limit 10
 python3 -m venv .venv
 . .venv/bin/activate
 pip install --upgrade pip
-pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.6"
+pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.7"
 news-fetcher version
 ```
 
-Expect `news-fetcher version 0.1.6`.
+Expect `news-fetcher version 0.1.7`.
 
 ## Minimal working config
 
@@ -115,6 +115,27 @@ Override sources directly from the CLI:
 news-fetcher --sources "http://feeds.bbci.co.uk/news/rss.xml,https://news.ycombinator.com/rss" --limit 10 run
 ```
 
+## GitHub project discovery
+
+Minimal config example:
+
+```yaml
+sources:
+  - name: GitHub Trending
+    url: https://github.com/trending
+    type: html
+    source_type: github_project_discovery
+    candidate_strategy: project_discovery
+
+thresholds:
+  similarity: 0.8
+  min_score: 0.0
+  cluster_size: 2
+  max_per_source: 3
+```
+
+This path discovers projects from GitHub Trending, enriches repository metadata, ranks projects with GitHub-specific signals, and emits selected repositories as normal news items.
+
 ## HTML sources
 
 For `type: html` sources, set `selector` when the site does not use clean `<article>` blocks.
@@ -134,7 +155,7 @@ sources:
 If `news-fetcher` is missing after installing the skill, install the Python package:
 
 ```bash
-pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.6"
+pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.7"
 ```
 
 If config validation fails, run:
@@ -147,7 +168,7 @@ If results are too sparse, lower `thresholds.min_score` or raise `thresholds.max
 
 ## References
 
-- Tagged source install: `pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.6"`
+- Tagged source install: `pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.7"`
 - PyPI (optional, if published): https://pypi.org/project/news-fetcher/
 - Source: https://github.com/miniade/news-fetcher
-- Version targeted by this skill: 0.1.6
+- Version targeted by this skill: 0.1.7

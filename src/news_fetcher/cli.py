@@ -220,11 +220,18 @@ def run(ctx):
                 if url.strip()
             ]
 
+        machine_output = (
+            bool(ctx.obj["output"])
+            or option_ctx.get_parameter_source("output_format") != ParameterSource.DEFAULT
+        )
+
         if ctx.obj["fixtures"]:
-            click.echo("Running pipeline from fixtures...")
+            if not machine_output:
+                click.echo("Running pipeline from fixtures...")
             result = pipeline.run_from_fixtures([ctx.obj["fixtures"]])
         else:
-            click.echo("Running news pipeline...")
+            if not machine_output:
+                click.echo("Running news pipeline...")
             result = pipeline.run(
                 sources=sources,
                 since=ctx.obj["since"],

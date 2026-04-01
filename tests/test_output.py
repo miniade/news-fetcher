@@ -35,6 +35,12 @@ class TestOutput:
                 source_official_flag=True,
                 source_frontpage_timestamp=datetime(2025, 2, 25, 12, 0),
                 acquisition_confidence=0.7,
+                item_type="github_project",
+                item_metadata={
+                    "repo_full_name": "miniade/news-fetcher",
+                    "stars_today": 42,
+                    "growth_signals": {"stars_today": 42},
+                },
                 selection_reasons=[
                     {"kind": "official_release"},
                     {"kind": "frontpage_rank", "position": 2},
@@ -65,6 +71,9 @@ class TestOutput:
         assert article["source_type"] == "platform_feed"
         assert article["source_rank_position"] == 2
         assert article["source_frontpage_timestamp"] == "2025-02-25T12:00:00"
+        assert article["item_type"] == "github_project"
+        assert article["item_metadata"]["repo_full_name"] == "miniade/news-fetcher"
+        assert article["item_metadata"]["stars_today"] == 42
         assert "embeddings" not in article
 
     def test_format_markdown(self):

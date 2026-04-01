@@ -10,6 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .exceptions import FetchError
+from .github_fetch import fetch_github_trending
 from .models import Article, Source
 
 
@@ -107,7 +108,17 @@ def fetch_all(
         for source in sources:
             if should_fetch(source, since):
                 try:
-                    if source.type == "rss":
+                    if (
+                        source.source_type == "github_project_discovery"
+                        and source.candidate_strategy == "project_discovery"
+                    ):
+                        source_articles = fetch_github_trending(
+                            source.url,
+                            session=session,
+                            source_name=source.name,
+                            source_config=source,
+                        )
+                    elif source.type == "rss":
                         source_articles = fetch_rss(
                             source.url,
                             session=session,

@@ -198,3 +198,22 @@ weights:
                     ]
                 }
             )
+
+
+    def test_validate_config_accepts_github_project_discovery_source(self):
+        config = validate_config(
+            {
+                "sources": [
+                    {
+                        "name": "GitHub Trending Projects",
+                        "url": "https://github.com/trending",
+                        "type": "html",
+                        "source_type": "github_project_discovery",
+                        "candidate_strategy": "project_discovery",
+                    }
+                ]
+            }
+        )
+
+        assert config.sources[0].source_type == "github_project_discovery"
+        assert config.sources[0].candidate_strategy == "project_discovery"

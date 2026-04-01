@@ -16,6 +16,7 @@ Advanced news aggregation and clustering tool that fetches articles from multipl
 - **Automatic Summarization**: Position-aware extractive summarization
 - **Multiple Output Formats**: JSON, Markdown, CSV, RSS
 - **Compact JSON Output**: Omits internal embeddings and centroids by default
+- **GitHub Project Discovery**: Discover and rank GitHub projects worth attention today, then emit them as normal news items
 
 ## Installation
 
@@ -77,7 +78,27 @@ weights:
   publish_time: 0.2
 ```
 
-`source_type` and `candidate_strategy` are optional in v1 schema, but if you set one you must set both. The currently supported strategy vocabulary is `latest`, `frontpage`, `trending`, `curated`, `release`, `community_ranked`, `high_engagement_proxy`, `section_frontpage`, and `corroboration_only`. See [`docs/source-strategy-design.md`](docs/source-strategy-design.md) for the design background; this release only validates and stores the fields, it does not change fetch behavior yet.
+`source_type` and `candidate_strategy` are optional in v1 schema, but if you set one you must set both. The currently supported strategy vocabulary is `latest`, `frontpage`, `trending`, `curated`, `release`, `community_ranked`, `high_engagement_proxy`, `section_frontpage`, `corroboration_only`, and `project_discovery`. Supported `source_type` values also include `github_project_discovery` for GitHub project candidate acquisition. See [`docs/source-strategy-design.md`](docs/source-strategy-design.md) for the design background; this release only validates and stores the fields, it does not change fetch behavior yet.
+
+### 1.1 GitHub project discovery example
+
+```yaml
+sources:
+  - name: GitHub Trending
+    url: https://github.com/trending
+    weight: 1.0
+    type: html
+    source_type: github_project_discovery
+    candidate_strategy: project_discovery
+
+thresholds:
+  similarity: 0.8
+  min_score: 0.0
+  cluster_size: 2
+  max_per_source: 3
+```
+
+This source discovers GitHub projects from the trending surface, enriches them with repository metadata, ranks them with GitHub-specific signals, and maps selected projects into normal news items.
 
 ### 2. Fetch News
 
@@ -105,14 +126,14 @@ news-fetcher --config config.yaml --limit 30 run
 clawhub install news-fetcher
 python3 -m venv .venv
 . .venv/bin/activate
-pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.6"
+pip install "git+https://github.com/miniade/news-fetcher.git@v0.1.7"
 news-fetcher version
 news-fetcher config example > config.yaml
 news-fetcher config validate config.yaml
 news-fetcher --config config.yaml --limit 10 run
 ```
 
-This path is the most reliable way to reproduce the exact `v0.1.6` release, even if PyPI has not been updated yet.
+This path is the most reliable way to reproduce the exact `v0.1.7` release, even if PyPI has not been updated yet.
 
 ### 3. Python API
 
